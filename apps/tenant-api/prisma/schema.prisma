@@ -99,7 +99,7 @@ model CitizenUser {
   passwordHash      String
   fullName          String
   verificationLevel String   @default("unverified") // "unverified" | "id_verified"
-  philsysNumberHash String?  @unique // hashed if linked, never stored raw
+  philsysNumberHash String?  @unique
   createdAt         DateTime @default(now())
 
   applications ApplicationCase[]

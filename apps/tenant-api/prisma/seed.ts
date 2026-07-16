@@ -14,7 +14,6 @@ const orgs = [
 ];
 
 async function main() {
-  // Shared service catalog — not tenant-scoped
   await prisma.serviceType.createMany({
     data: [
       {
@@ -85,7 +84,7 @@ async function main() {
         email: `clerk@${org.code}.gov.ph`,
         invitedById: staff.id,
         status: 'pending',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
