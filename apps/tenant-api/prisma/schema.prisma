@@ -3,14 +3,15 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 model Organization {
   code                String   @id
   name                String
-  level               String   // "province" | "city" | "municipality" | "barangay"
+  level               String // "province" | "city" | "municipality" | "barangay"
   emailDomain         String?
   customDomain        String?
   usesGoogleWorkspace Boolean  @default(false)
@@ -25,11 +26,11 @@ model Organization {
 }
 
 model Department {
-  id       String   @id @default(uuid())
+  id       String       @id @default(uuid())
   orgCode  String
   org      Organization @relation(fields: [orgCode], references: [code])
   name     String
-  category String   // "mandatory" | "optional" | "custom"
+  category String // "mandatory" | "optional" | "custom"
 
   staff        StaffUser[]
   applications ApplicationCase[]
@@ -38,69 +39,69 @@ model Department {
 }
 
 model StaffUser {
-  id           String   @id @default(uuid())
+  id           String       @id @default(uuid())
   orgCode      String
   org          Organization @relation(fields: [orgCode], references: [code])
-  email        String   @unique
-  passwordHash String?  // nullable — Google OAuth users may have none
-  authProvider String   @default("password") // "password" | "google"
-  status       String   @default("active")   // "active" | "suspended"
+  email        String       @unique
+  passwordHash String? // nullable — Google OAuth users may have none
+  authProvider String       @default("password") // "password" | "google"
+  status       String       @default("active") // "active" | "suspended"
   baseRole     String
   departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime @default(now())
+  department   Department   @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime     @default(now())
 
-  employee     Employee?
-  grants       PermissionGrant[]
-  invitesSent  StaffInvite[] @relation("InvitedBy")
-  auditLogs    AuditLog[]
+  employee    Employee?
+  grants      PermissionGrant[]
+  invitesSent StaffInvite[]     @relation("InvitedBy")
+  auditLogs   AuditLog[]
 
   @@index([orgCode])
 }
 
 model StaffInvite {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   orgCode     String
   org         Organization @relation(fields: [orgCode], references: [code])
   email       String
   invitedById String
-  invitedBy   StaffUser @relation("InvitedBy", fields: [invitedById], references: [id])
-  status      String   @default("pending") // "pending" | "accepted" | "revoked" | "expired"
+  invitedBy   StaffUser    @relation("InvitedBy", fields: [invitedById], references: [id])
+  status      String       @default("pending") // "pending" | "accepted" | "revoked" | "expired"
   expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
 
   @@index([orgCode])
 }
 
 model Employee {
-  id          String   @id @default(uuid())
-  staffUserId String   @unique
+  id          String    @id @default(uuid())
+  staffUserId String    @unique
   staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
   position    String
   dateHired   DateTime
 }
 
 model PermissionGrant {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   staffUserId String
   staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
-  permission  String   // e.g. "manage_hr", "review_ordinance", "approve_permits"
-  scopeType   String   // "department" | "case" | "org"
+  permission  String // e.g. "manage_hr", "review_ordinance", "approve_permits"
+  scopeType   String // "department" | "case" | "org"
   scopeId     String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 }
 
 model CitizenUser {
-  id                String   @id @default(uuid())
+  id                String       @id @default(uuid())
   orgCode           String
   org               Organization @relation(fields: [orgCode], references: [code])
-  email             String?  @unique
-  phone             String?  @unique
+  email             String?      @unique
+  phone             String?      @unique
   passwordHash      String
   fullName          String
-  verificationLevel String   @default("unverified") // "unverified" | "id_verified"
-  philsysNumberHash String?  @unique
-  createdAt         DateTime @default(now())
+  verificationLevel String       @default("unverified") // "unverified" | "id_verified"
+  philsysNumberHash String?      @unique
+  createdAt         DateTime     @default(now())
 
   applications ApplicationCase[]
 
@@ -108,42 +109,42 @@ model CitizenUser {
 }
 
 model ServiceType {
-  code                 String   @id
+  code                 String  @id
   name                 String
-  category             String   // "barangay" | "municipal" | "provincial"
-  requiresVerification Boolean  @default(false)
+  category             String // "barangay" | "municipal" | "provincial"
+  requiresVerification Boolean @default(false)
 
   applications ApplicationCase[]
 }
 
 model ApplicationCase {
-  id                   String   @id @default(uuid())
+  id                   String       @id @default(uuid())
   orgCode              String
   org                  Organization @relation(fields: [orgCode], references: [code])
   citizenId            String
-  citizen              CitizenUser @relation(fields: [citizenId], references: [id])
+  citizen              CitizenUser  @relation(fields: [citizenId], references: [id])
   serviceTypeCode      String
-  serviceType          ServiceType @relation(fields: [serviceTypeCode], references: [code])
-  status               String   @default("submitted") // "submitted" | "in_review" | "approved" | "rejected"
+  serviceType          ServiceType  @relation(fields: [serviceTypeCode], references: [code])
+  status               String       @default("submitted") // "submitted" | "in_review" | "approved" | "rejected"
   assignedDepartmentId String?
-  assignedDepartment   Department? @relation(fields: [assignedDepartmentId], references: [id])
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  assignedDepartment   Department?  @relation(fields: [assignedDepartmentId], references: [id])
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
   @@index([orgCode])
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   orgCode    String?
   org        Organization? @relation(fields: [orgCode], references: [code])
   actorId    String?
-  actor      StaffUser? @relation(fields: [actorId], references: [id])
+  actor      StaffUser?    @relation(fields: [actorId], references: [id])
   actorEmail String
-  action     String   // "login_success" | "login_failed" | "account_suspended"
+  action     String // "login_success" | "login_failed" | "account_suspended"
   ipAddress  String?
   userAgent  String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime      @default(now())
 
   @@index([orgCode])
   @@index([actorId])
