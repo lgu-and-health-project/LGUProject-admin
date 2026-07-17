@@ -15,5 +15,12 @@
     "dotenv": "^17.4.2",
     "prisma": "^7.8.0",
     "turbo": "^2.10.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
   }
 }
