@@ -15,7 +15,7 @@ export class AuthService {
       where: { email },
     });
 
-    if (!admin) {
+    if (!admin || !admin.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
