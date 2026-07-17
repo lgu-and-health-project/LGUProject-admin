@@ -8,8 +8,6 @@ import {
   Users, 
   Settings, 
   LogOut, 
-  ChevronLeft, 
-  ChevronRight,
   Menu,
   Building2,
   ShieldCheck
@@ -42,34 +40,33 @@ export default function DashboardLayout({
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
+  // Find the current page title based on the active path
+  const currentNav = navItems.find(item => item.href === pathname) || { name: "Dashboard" };
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <aside 
-        className={`relative flex flex-col bg-surface border-r border-text-secondary/10 transition-all duration-300 ease-in-out ${
+        className={`relative flex flex-col bg-surface border-r border-text-secondary/10 transition-all duration-300 ease-in-out overflow-hidden ${
           collapsed ? "w-[72px]" : "w-64"
         }`}
       >
-        {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-text-secondary/10">
-          <div className={`flex items-center overflow-hidden whitespace-nowrap transition-all duration-300 ${collapsed ? "w-0 opacity-0" : "w-full opacity-100"}`}>
-            <div className="h-8 w-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
-              <span className="text-white font-bold text-sm tracking-tighter">LP</span>
-            </div>
-            <span className="font-bold text-foreground">Admin Portal</span>
+        {/* Sidebar Header (Logo + App Name) */}
+        <div className="flex items-center h-16 px-4 border-b border-text-secondary/10 overflow-hidden whitespace-nowrap">
+          <div className="h-8 w-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
+            <span className="text-white font-bold text-sm tracking-tighter">LP</span>
           </div>
-          
-          {/* Collapse Toggle Button */}
-          <button 
-            onClick={() => setCollapsed(!collapsed)}
-            className="absolute -right-3 top-5 bg-background border border-text-secondary/20 rounded-full p-1 text-text-secondary hover:text-foreground hover:bg-surface shadow-sm z-10 transition-colors"
+          <span 
+            className={`font-bold text-foreground transition-opacity duration-300 ${
+              collapsed ? "opacity-0 hidden" : "opacity-100 block"
+            }`}
           >
-            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
+            Admin Portal
+          </span>
         </div>
 
         {/* Sidebar Navigation */}
-        <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3">
+        <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-2 px-3 overflow-x-hidden">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -81,7 +78,7 @@ export default function DashboardLayout({
                 className={`flex items-center rounded-xl p-2.5 group transition-colors relative ${
                   isActive 
                     ? "bg-primary/10 text-primary" 
-                    : "text-text-secondary hover:bg-surface hover:text-foreground"
+                    : "text-text-secondary hover:bg-surface-hover hover:text-foreground"
                 }`}
                 title={collapsed ? item.name : undefined}
               >
@@ -90,8 +87,8 @@ export default function DashboardLayout({
                 </div>
                 
                 <span 
-                  className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-300 ${
-                    collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
+                  className={`ml-3 text-sm font-medium whitespace-nowrap transition-opacity duration-300 ${
+                    collapsed ? "opacity-0 hidden" : "opacity-100 block"
                   }`}
                 >
                   {item.name}
@@ -109,7 +106,7 @@ export default function DashboardLayout({
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-text-secondary/10">
+        <div className="p-3 border-t border-text-secondary/10 overflow-x-hidden">
           <button
             onClick={handleLogout}
             className={`w-full flex items-center rounded-xl p-2.5 text-text-secondary hover:bg-red-500/10 hover:text-red-500 transition-colors group relative`}
@@ -120,8 +117,8 @@ export default function DashboardLayout({
             </div>
             
             <span 
-              className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-300 ${
-                collapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100 block"
+              className={`ml-3 text-sm font-medium whitespace-nowrap transition-opacity duration-300 ${
+                collapsed ? "opacity-0 hidden" : "opacity-100 block"
               }`}
             >
               Logout
@@ -139,17 +136,25 @@ export default function DashboardLayout({
 
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header (Only visible on small screens) */}
-        <header className="md:hidden flex items-center justify-between h-16 px-4 bg-surface border-b border-text-secondary/10">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm mr-3">
-              <span className="text-white font-bold text-sm tracking-tighter">LP</span>
-            </div>
-            <span className="font-bold text-foreground">Admin Portal</span>
+        {/* Top Header */}
+        <header className="flex items-center justify-between h-16 px-6 bg-surface border-b border-text-secondary/10 z-10">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setCollapsed(!collapsed)}
+              className="p-2 -ml-2 rounded-lg text-text-secondary hover:bg-background hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+              aria-label="Toggle Sidebar"
+            >
+              <Menu size={20} />
+            </button>
+            
+            <h1 className="font-bold text-lg text-foreground tracking-tight border-l border-text-secondary/20 pl-4">
+              {currentNav.name}
+            </h1>
           </div>
-          <button className="text-text-secondary hover:text-foreground">
-            <Menu size={24} />
-          </button>
+          
+          <div className="flex items-center space-x-3">
+            {/* Future buttons can go here */}
+          </div>
         </header>
 
         {/* Actual Page Content */}
