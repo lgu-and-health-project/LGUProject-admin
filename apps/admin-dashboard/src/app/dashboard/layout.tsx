@@ -35,8 +35,8 @@ export default function DashboardLayout({
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Tenants (LGUs)", href: "/dashboard/tenants", icon: Building2 },
-    { name: "Users", href: "/dashboard/users", icon: Users },
-    { name: "Audit Logs", href: "/dashboard/audit", icon: ShieldCheck },
+    { name: "Administrators", href: "/dashboard/administrators", icon: ShieldCheck },
+    { name: "Audit Logs", href: "/dashboard/audit", icon: Users },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
