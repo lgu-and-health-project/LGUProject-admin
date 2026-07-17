@@ -9,11 +9,15 @@ async function bootstrap() {
   app.use(cookieParser());
   
   // 2. Enable CORS specifically for the frontend
+  const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL as string] 
+    : [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://192.168.100.28:3000'];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true, // This is REQUIRED for the browser to accept HttpOnly cookies from the backend
   });
 
-  await app.listen(process.env.PORT ?? 4000);
+  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }
 bootstrap();

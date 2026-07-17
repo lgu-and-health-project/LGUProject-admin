@@ -23,8 +23,12 @@ async function main() {
   }
 
   // WIPE DATABASE CLEAN
-  console.log('Wiping all existing superadmins for a clean slate...');
-  await prisma.superAdmin.deleteMany();
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Wiping all existing superadmins for a clean slate...');
+    await prisma.superAdmin.deleteMany();
+  } else {
+    console.log('Production environment detected. Skipping database wipe.');
+  }
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
