@@ -19,8 +19,6 @@ export default function Login() {
     try {
       await authService.login({ email, password });
 
-      // Successful login! The HttpOnly cookie is set by the backend.
-      // Redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
