@@ -300,4 +300,36 @@ export class AdminsService {
       email: result.email,
     };
   }
+
+  async resendInvite(id: string, user: any) {
+    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+    if (!admin) throw new Error('Administrator not found');
+    
+    if (admin.status !== 'INVITED') {
+      throw new Error('Can only resend invitations to administrators with INVITED status');
+    }
+
+    const crypto = require('crypto');
+    const inviteToken = crypto.randomBytes(32).toString('hex');
+    
+    const inviteExpiresAt = new Date();
+    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + 7);
+
+    await this.prisma.superAdmin.update({
+      where: { id },
+      data: { inviteToken, inviteExpiresAt }
+    });
+
+    if (user && user.sub) {
+      await this.auditLogsService.logAction(
+        user.sub,
+        'resend_invite',
+        `Resent invitation email to: ${admin.email}`
+      );
+    }
+
+    this.mailService.sendAdminInvite(admin.email, inviteToken, admin.fullName).catch(console.error);
+
+    return { success: true, message: 'Invitation resent successfully' };
+  }
 }

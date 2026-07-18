@@ -59,4 +59,10 @@ export const adminService = {
       method: "POST",
     });
   },
+
+  resendInvite: async (id: string): Promise<any> => {
+    return fetchApi(`/admins/${id}/resend`, {
+      method: "POST",
+    });
+  },
 };
