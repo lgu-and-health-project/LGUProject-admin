@@ -13,6 +13,9 @@ import {
   Loader2,
   Copy,
   CheckCircle2,
+  Trash2,
+  Edit,
+  Flag,
 } from "lucide-react";
 import {
   adminService,
@@ -21,6 +24,7 @@ import {
   AdminRole,
 } from "@/services/adminService";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import toast from "react-hot-toast";
 
 export default function AdministratorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,6 +48,27 @@ export default function AdministratorsPage() {
     idToDelete: string | null;
   }>({ isOpen: false, idToDelete: null });
 
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (token) return JSON.parse(atob(token.split('.')[1])).email;
+      } catch (e) {}
+    }
+    return null;
+  });
+  
+  const [currentUserRole, setCurrentUserRole] = useState<AdminRole | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (token) return JSON.parse(atob(token.split('.')[1])).role;
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchAdmins();
 
@@ -62,7 +87,7 @@ export default function AdministratorsPage() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const fetchAdmins = async () => {
+  async function fetchAdmins() {
     try {
       const data = await adminService.getAdmins();
       setAdmins(data);
@@ -81,7 +106,12 @@ export default function AdministratorsPage() {
     try {
       // The API returns the created admin which includes the inviteToken
       const newAdmin: any = await adminService.inviteAdmin(inviteForm);
-      setAdmins((prev) => [...prev, newAdmin]);
+      setAdmins((prev) => {
+        if (prev.some(a => a.id === newAdmin.id)) {
+          return prev.map(a => a.id === newAdmin.id ? newAdmin : a);
+        }
+        return [...prev, newAdmin];
+      });
       if (newAdmin.status === "PENDING_APPROVAL") {
         setInviteSuccessLink("PENDING");
       } else {
@@ -90,8 +120,9 @@ export default function AdministratorsPage() {
         );
       }
       setIsCopied(false);
-    } catch (err) {
-      alert("Failed to invite administrator");
+      toast.success(newAdmin.status === "PENDING_APPROVAL" ? "Invite sent for approval!" : "Invite created and sent successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to invite administrator");
     } finally {
       setInviteLoading(false);
     }
@@ -104,8 +135,9 @@ export default function AdministratorsPage() {
       setInviteForm({ fullName: updatedAdmin.fullName, email: updatedAdmin.email, role: updatedAdmin.role });
       setInviteSuccessLink(`${window.location.origin}/invite?token=${updatedAdmin.inviteToken}`);
       setIsInviteModalOpen(true);
+      toast.success("Administrator approved successfully!");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to approve administrator");
+      toast.error(err instanceof Error ? err.message : "Failed to approve administrator");
     }
   };
 
@@ -113,8 +145,9 @@ export default function AdministratorsPage() {
     try {
       const updatedAdmin = await adminService.rejectPendingAdmin(id);
       setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
+      toast.success("Administrator rejected.");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to reject administrator");
+      toast.error(err instanceof Error ? err.message : "Failed to reject administrator");
     }
   };
 
@@ -125,8 +158,9 @@ export default function AdministratorsPage() {
     try {
       await adminService.deleteAdmin(id);
       setAdmins((prev) => prev.filter((admin) => admin.id !== id));
+      toast.success("Administrator deleted successfully.");
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "Failed to delete administrator",
       );
     } finally {
@@ -234,7 +268,7 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm overflow-hidden overflow-x-auto">
+      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm">
         <table className="min-w-full divide-y divide-text-secondary/10">
           <thead className="bg-background/50">
             <tr>
@@ -301,10 +335,19 @@ export default function AdministratorsPage() {
                       .includes(searchQuery.toLowerCase()) ||
                     a.email.toLowerCase().includes(searchQuery.toLowerCase()),
                 )
-                .map((admin) => (
+                .map((admin) => {
+                  const normalizedUserRole = currentUserRole?.toUpperCase() || "";
+                  const normalizedTargetRole = admin.role?.toUpperCase() || "";
+
+                  const canEdit = normalizedUserRole === "ROOT_SUPERADMIN" && normalizedTargetRole === "ADMIN";
+                  const canRemove = normalizedUserRole === "ROOT_SUPERADMIN" && normalizedTargetRole === "ADMIN";
+                  const canReport = normalizedUserRole === "ADMIN" && normalizedTargetRole === "ADMIN";
+                  const hasAnyAction = canEdit || canRemove || canReport;
+
+                  return (
                   <tr
                     key={admin.id}
-                    className="hover:bg-background/50 transition-colors group"
+                    className="hover:bg-background/50 transition-colors group relative"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -389,14 +432,68 @@ export default function AdministratorsPage() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                      ) : (
-                        <button className="text-text-secondary hover:text-foreground p-1 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      )}
+                      ) : admin.email !== currentUserEmail ? (
+                        <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setOpenMenuId(openMenuId === admin.id ? null : admin.id);
+                            }}
+                            className="text-text-secondary hover:text-foreground p-1 rounded-full hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          {openMenuId === admin.id && (
+                            <div className="absolute right-8 top-0 mt-0 w-48 bg-surface border border-text-secondary/10 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                              {canEdit && (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    toast('Edit profile functionality coming soon', { icon: '🚧' });
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:bg-background hover:text-foreground transition-colors flex items-center"
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit Profile
+                                </button>
+                              )}
+                              {canReport && (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    toast('Report functionality coming soon', { icon: '🚧' });
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
+                                >
+                                  <Flag className="w-4 h-4 mr-2" />
+                                  Report Administrator
+                                </button>
+                              )}
+                              {canRemove && (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleDeleteAdminClick(admin.id);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Administrator
+                                </button>
+                              )}
+                              {!hasAnyAction && (
+                                <div className="px-4 py-3 text-sm text-text-secondary italic text-center border-t border-text-secondary/10 mt-1">
+                                  No actions available
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </td>
                   </tr>
-                ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -447,12 +544,12 @@ export default function AdministratorsPage() {
                     <Check className="h-6 w-6 text-emerald-600" />
                   </div>
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    {inviteSuccessLink === "PENDING" ? "Invite Pending Approval!" : "Invite Created!"}
+                    {inviteSuccessLink === "PENDING" ? "Invite Pending Approval!" : "Invitation Sent!"}
                   </h3>
                   <p className="text-sm text-text-secondary mb-4">
                     {inviteSuccessLink === "PENDING" 
-                      ? "The invitation has been sent for superadmin approval. Once approved, the token can be shared."
-                      : "Copy the link below and send it to the administrator so they can set their password."}
+                      ? "The invitation has been sent for superadmin approval. Once approved, the email will be sent automatically."
+                      : "An email has been automatically sent to the administrator with instructions to set their password. If they didn't receive it, you can share this backup link:"}
                   </p>
                   {inviteSuccessLink !== "PENDING" && (
                     <div className="bg-background border border-text-secondary/20 p-3 rounded-lg flex items-center justify-between mb-6">
