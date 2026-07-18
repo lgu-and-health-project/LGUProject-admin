@@ -1,6 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import * as dns from 'dns';
+
+// Force Node.js to use IPv4 over IPv6. Node 17+ prefers IPv6, which breaks Render's SMTP networking.
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
