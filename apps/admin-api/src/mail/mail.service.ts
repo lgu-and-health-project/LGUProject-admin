@@ -52,8 +52,33 @@ export class MailService {
     `;
 
     try {
-      // 1. If Resend API Key exists, use it (Perfect for Render Free Tier)
-      if (process.env.RESEND_API_KEY) {
+      // 1. If Brevo API Key exists, use it (Perfect for Render, allows sending to anyone without custom domain)
+      if (process.env.BREVO_API_KEY) {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': process.env.BREVO_API_KEY,
+            'content-type': 'application/json'
+          },
+          body: JSON.stringify({
+            sender: { 
+              name: process.env.SMTP_FROM_NAME || 'LGU Platform Admin', 
+              email: process.env.SMTP_FROM || process.env.SMTP_USER || 'admin@example.com' 
+            },
+            to: [{ email: to }],
+            subject: 'You have been invited as an Administrator',
+            htmlContent: htmlContent
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Brevo API error: ${response.status} ${errorText}`);
+        }
+      }
+      // 2. If Resend API Key exists, use it (Strict sandbox if no domain)
+      else if (process.env.RESEND_API_KEY) {
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -73,7 +98,7 @@ export class MailService {
           throw new Error(`Resend API error: ${response.status} ${errorText}`);
         }
       } 
-      // 2. Otherwise fall back to Nodemailer (Perfect for VPS)
+      // 3. Otherwise fall back to Nodemailer (Perfect for VPS, but BLOCKED on Render Free)
       else {
         await this.transporter.sendMail({
           from: `"Admin Dashboard" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
