@@ -151,6 +151,16 @@ export default function AdministratorsPage() {
     }
   };
 
+  const handleResendInvite = async (id: string) => {
+    try {
+      toast.loading("Resending invite...", { id: "resend-invite" });
+      await adminService.resendInvite(id);
+      toast.success("Invitation resent successfully!", { id: "resend-invite" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend invite", { id: "resend-invite" });
+    }
+  };
+
   const executeDeleteAdmin = async () => {
     const id = confirmState.idToDelete;
     if (!id) return;
@@ -411,7 +421,10 @@ export default function AdministratorsPage() {
                         </div>
                       ) : admin.status === "INVITED" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded">
+                          <button 
+                            onClick={() => handleResendInvite(admin.id)}
+                            className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
+                          >
                             <Mail className="w-3 h-3 mr-1" /> Resend
                           </button>
                           <button

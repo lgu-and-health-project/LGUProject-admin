@@ -43,6 +43,12 @@ export class AdminsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/resend')
+  async resendInvite(@Param('id') id: string, @Req() req: Request) {
+    return this.adminsService.resendInvite(id, req['user']);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':id/reject')
   async rejectPendingAdmin(@Param('id') id: string, @Req() req: Request) {
     return this.adminsService.rejectPendingAdmin(id, req['user']);
