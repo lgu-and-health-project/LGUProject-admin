@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { MailService } from '../mail/mail.service';
+
 
 @Injectable()
 export class AdminsService {
@@ -10,8 +10,7 @@ export class AdminsService {
 
   constructor(
     private prisma: PrismaService,
-    private auditLogsService: AuditLogsService,
-    private mailService: MailService
+    private auditLogsService: AuditLogsService
   ) {}
 
   async findAll() {
@@ -76,9 +75,10 @@ export class AdminsService {
       );
     }
 
-    // Only email directly if ROOT_SUPERADMIN invites
+    // Log the invite link since we disabled the mail service
     if (status === 'INVITED') {
-      this.mailService.sendAdminInvite(data.email, inviteToken, data.fullName).catch(console.error);
+      const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${inviteToken}`;
+      console.log(`[No Email Service yet, manually copy and paste invite token for now]: ${inviteLink}`);
     }
 
     return {
@@ -182,9 +182,10 @@ export class AdminsService {
       `Approved administrator: ${admin.email}`
     );
 
-    // After approval, it's safe to send the email
+    // Log the invite link since we disabled the mail service
     if (admin.inviteToken) {
-      this.mailService.sendAdminInvite(admin.email, admin.inviteToken, admin.fullName).catch(console.error);
+      const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${admin.inviteToken}`;
+      console.log(`[No Email Service yet, manually copy and paste invite token for now]: ${inviteLink}`);
     }
 
     return {
@@ -340,7 +341,9 @@ export class AdminsService {
       );
     }
 
-    this.mailService.sendAdminInvite(admin.email, inviteToken, admin.fullName).catch(console.error);
+    // Log the invite link since we disabled the mail service
+    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${inviteToken}`;
+    console.log(`[No Email Service yet, manually copy and paste invite token for now]: ${inviteLink}`);
 
     return { success: true, message: 'Invitation resent successfully' };
   }
