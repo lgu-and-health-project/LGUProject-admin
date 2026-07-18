@@ -24,8 +24,8 @@ export class MailService {
   async sendAdminInvite(to: string, token: string, fullName: string) {
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${token}`;
     
-    // Only attempt to send if SMTP_USER or RESEND_API_KEY is configured
-    if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
+    // Only attempt to send if at least one email provider is configured
+    if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY && !process.env.BREVO_API_KEY) {
       this.logger.warn(`No Email credentials configured. Invitation link for ${to}: ${inviteLink}`);
       return;
     }
