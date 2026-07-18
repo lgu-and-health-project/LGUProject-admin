@@ -7,7 +7,7 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
+    this.transporter = (nodemailer.createTransport as any)({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587', 10),
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
@@ -15,6 +15,9 @@ export class MailService {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Force IPv4. Node 17+ prefers IPv6 by default, which can cause
+      // ENETUNREACH errors on platforms like Render when connecting to Google SMTP
+      family: 4, 
     });
   }
 
