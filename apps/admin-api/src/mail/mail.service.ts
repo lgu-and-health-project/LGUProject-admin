@@ -24,38 +24,65 @@ export class MailService {
   async sendAdminInvite(to: string, token: string, fullName: string) {
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${token}`;
     
-    // Only attempt to send if SMTP_USER is configured, otherwise just log it
-    if (!process.env.SMTP_USER) {
-      this.logger.warn(`SMTP credentials not configured. Invitation link for ${to}: ${inviteLink}`);
+    // Only attempt to send if SMTP_USER or RESEND_API_KEY is configured
+    if (!process.env.SMTP_USER && !process.env.RESEND_API_KEY) {
+      this.logger.warn(`No Email credentials configured. Invitation link for ${to}: ${inviteLink}`);
       return;
     }
 
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #333;">Welcome to the Platform, ${fullName}!</h2>
+        <p style="color: #555; line-height: 1.5;">
+          You have been invited to join the platform as an Administrator.
+        </p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Accept Invitation & Set Password
+          </a>
+        </div>
+        <p style="color: #777; font-size: 12px; margin-top: 20px;">
+          If you cannot click the button, copy and paste this link into your browser:<br/>
+          <a href="${inviteLink}">${inviteLink}</a>
+        </p>
+        <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+          This link will expire in 7 days. If you did not expect this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    `;
+
     try {
-      await this.transporter.sendMail({
-        from: `"Admin Dashboard" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-        to,
-        subject: 'You have been invited as an Administrator',
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #333;">Welcome to the Platform, ${fullName}!</h2>
-            <p style="color: #555; line-height: 1.5;">
-              You have been invited to join the platform as an Administrator.
-            </p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Accept Invitation & Set Password
-              </a>
-            </div>
-            <p style="color: #777; font-size: 12px; margin-top: 20px;">
-              If you cannot click the button, copy and paste this link into your browser:<br/>
-              <a href="${inviteLink}">${inviteLink}</a>
-            </p>
-            <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
-              This link will expire in 7 days. If you did not expect this invitation, you can safely ignore this email.
-            </p>
-          </div>
-        `,
-      });
+      // 1. If Resend API Key exists, use it (Perfect for Render Free Tier)
+      if (process.env.RESEND_API_KEY) {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: process.env.SMTP_FROM || 'Admin Dashboard <onboarding@resend.dev>',
+            to: [to],
+            subject: 'You have been invited as an Administrator',
+            html: htmlContent
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Resend API error: ${response.status} ${errorText}`);
+        }
+      } 
+      // 2. Otherwise fall back to Nodemailer (Perfect for VPS)
+      else {
+        await this.transporter.sendMail({
+          from: `"Admin Dashboard" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+          to,
+          subject: 'You have been invited as an Administrator',
+          html: htmlContent,
+        });
+      }
+
       this.logger.log(`Sent invitation email to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send invitation email to ${to}`, error);
