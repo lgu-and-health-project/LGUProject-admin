@@ -75,7 +75,7 @@ export class AdminsService {
 
     // Only email directly if ROOT_SUPERADMIN invites
     if (status === 'INVITED') {
-      await this.mailService.sendAdminInvite(data.email, inviteToken, data.fullName);
+      this.mailService.sendAdminInvite(data.email, inviteToken, data.fullName).catch(console.error);
     }
 
     return {
@@ -181,7 +181,7 @@ export class AdminsService {
 
     // After approval, it's safe to send the email
     if (admin.inviteToken) {
-      await this.mailService.sendAdminInvite(admin.email, admin.inviteToken, admin.fullName);
+      this.mailService.sendAdminInvite(admin.email, admin.inviteToken, admin.fullName).catch(console.error);
     }
 
     return {
