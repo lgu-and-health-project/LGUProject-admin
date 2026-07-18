@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { MailService } from '../mail/mail.service';
@@ -317,7 +317,7 @@ export class AdminsService {
     const lastSent = this.inviteCooldowns.get(id);
     if (lastSent && now - lastSent < 60000) {
       const remainingSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
-      throw new Error(`Please wait ${remainingSeconds} seconds before resending.`);
+      throw new BadRequestException(`Please wait ${remainingSeconds} seconds before resending.`);
     }
     this.inviteCooldowns.set(id, now);
 
