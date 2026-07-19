@@ -57,7 +57,7 @@ export default function AdministratorsPage() {
     }
     return null;
   });
-  
+
   const [currentUserRole, setCurrentUserRole] = useState<AdminRole | null>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -72,7 +72,6 @@ export default function AdministratorsPage() {
   useEffect(() => {
     fetchAdmins();
 
-    // Silent background polling every 5 seconds for realtime seamlessness
     const intervalId = setInterval(() => {
       adminService
         .getAdmins()
@@ -104,7 +103,6 @@ export default function AdministratorsPage() {
     e.preventDefault();
     setInviteLoading(true);
     try {
-      // The API returns the created admin which includes the inviteToken
       const newAdmin: any = await adminService.inviteAdmin(inviteForm);
       setAdmins((prev) => {
         if (prev.some(a => a.id === newAdmin.id)) {
@@ -421,7 +419,7 @@ export default function AdministratorsPage() {
                         </div>
                       ) : admin.status === "INVITED" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button
                             onClick={() => handleResendInvite(admin.id)}
                             className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
                           >
@@ -447,7 +445,7 @@ export default function AdministratorsPage() {
                         </div>
                       ) : admin.email !== currentUserEmail ? (
                         <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.preventDefault();
                               setOpenMenuId(openMenuId === admin.id ? null : admin.id);
@@ -560,7 +558,7 @@ export default function AdministratorsPage() {
                     {inviteSuccessLink === "PENDING" ? "Invite Pending Approval!" : "Invitation Sent!"}
                   </h3>
                   <p className="text-sm text-text-secondary mb-4">
-                    {inviteSuccessLink === "PENDING" 
+                    {inviteSuccessLink === "PENDING"
                       ? "The invitation has been sent for superadmin approval. Once approved, the email will be sent automatically."
                       : "An email has been automatically sent to the administrator with instructions to set their password. If they didn't receive it, you can share this backup link:"}
                   </p>
