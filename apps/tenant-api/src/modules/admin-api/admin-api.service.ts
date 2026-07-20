@@ -15,7 +15,7 @@ export class AdminApiService {
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {
-    this.adminApiUrl = this.configService.get<string>('ADMIN_API_URL') || 'http://localhost:3000';
+    this.adminApiUrl = this.configService.get<string>('ADMIN_API_URL') || 'http://localhost:4000';
   }
 
   async verifyRegistrationKey(registrationKey: string) {

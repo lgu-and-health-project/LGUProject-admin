@@ -37,7 +37,7 @@ export default function SetupPage() {
     try {
       // Send a GraphQL mutation to the tenant-api
       // Adjust the URL if your tenant-api runs on a different port or path
-      const response = await fetch("http://localhost:4000/graphql", {
+      const response = await fetch("http://localhost:4001/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
