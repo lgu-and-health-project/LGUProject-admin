@@ -13,3 +13,6 @@ test-admin.ps1
 
 # Local editor settings
 .vscode/settings.json
+
+# Personal notes
+ACTIONS.md
