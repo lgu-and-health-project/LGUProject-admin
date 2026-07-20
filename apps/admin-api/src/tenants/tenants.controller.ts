@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -21,4 +21,15 @@ export class TenantsController {
   suspendTenant(@Param('id') id: string, @Request() req: any) {
     return this.tenantsService.suspendTenant(id, req.user);
   }
+
+  @Put(':id/activate')
+  activateTenant(@Param('id') id: string, @Request() req: any) {
+    return this.tenantsService.activateTenant(id, req.user);
+  }
+
+  @Delete(':id')
+  deleteTenant(@Param('id') id: string, @Request() req: any) {
+    return this.tenantsService.deleteTenant(id, req.user);
+  }
 }
+

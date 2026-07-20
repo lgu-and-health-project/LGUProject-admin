@@ -77,4 +77,44 @@ export class TenantsService {
 
     return result;
   }
+
+  async activateTenant(id: string, actor: any) {
+    const tenant = await this.prisma.lguTenant.findUnique({ where: { id } });
+    if (!tenant) throw new Error('Tenant not found');
+
+    const result = await this.prisma.lguTenant.update({
+      where: { id },
+      data: { status: 'active' }
+    });
+
+    if (actor && actor.sub) {
+      await this.auditLogsService.logAction(
+        actor.sub,
+        'activate_tenant',
+        `Suspended tenant organization activated: ${tenant.name}`
+      );
+    }
+
+    return result;
+  }
+
+  async deleteTenant(id: string, actor: any) {
+    const tenant = await this.prisma.lguTenant.findUnique({ where: { id } });
+    if (!tenant) throw new Error('Tenant not found');
+
+    const result = await this.prisma.lguTenant.delete({
+      where: { id }
+    });
+
+    if (actor && actor.sub) {
+      await this.auditLogsService.logAction(
+        actor.sub,
+        'delete_tenant',
+        `Deleted tenant organization: ${tenant.name}`
+      );
+    }
+
+    return result;
+  }
 }
+

@@ -43,9 +43,11 @@ export default function TenantsPage() {
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     idToSuspend: string | null;
+    action: 'suspend' | 'activate' | 'delete' | null;
   }>({
     isOpen: false,
     idToSuspend: null,
+    action: null,
   });
   const [newKeyModal, setNewKeyModal] = useState<{
     isOpen: boolean;
@@ -206,22 +208,29 @@ export default function TenantsPage() {
     }
   };
 
-  const handleSuspendClick = (id: string) => {
-    setConfirmState({ isOpen: true, idToSuspend: id });
+  const handleActionClick = (id: string, action: 'suspend' | 'activate' | 'delete') => {
+    setConfirmState({ isOpen: true, idToSuspend: id, action });
   };
 
-  const handleSuspendConfirm = async () => {
-    if (!confirmState.idToSuspend) return;
+  const handleConfirmAction = async () => {
+    if (!confirmState.idToSuspend || !confirmState.action) return;
+    const { idToSuspend, action } = confirmState;
     try {
-      await fetchApi(`/tenants/${confirmState.idToSuspend}/suspend`, {
-        method: "PUT",
-      });
-      setConfirmState({ isOpen: false, idToSuspend: null });
+      if (action === 'suspend') {
+        await fetchApi(`/tenants/${idToSuspend}/suspend`, { method: "PUT" });
+        toast.success("Tenant suspended successfully!");
+      } else if (action === 'activate') {
+        await fetchApi(`/tenants/${idToSuspend}/activate`, { method: "PUT" });
+        toast.success("Tenant reactivated successfully!");
+      } else if (action === 'delete') {
+        await fetchApi(`/tenants/${idToSuspend}`, { method: "DELETE" });
+        toast.success("Tenant permanently deleted!");
+      }
+      setConfirmState({ isOpen: false, idToSuspend: null, action: null });
       loadTenants();
-      toast.success("Tenant suspended successfully!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to suspend tenant");
-      setConfirmState({ isOpen: false, idToSuspend: null });
+      toast.error(e.message || `Failed to ${action} tenant`);
+      setConfirmState({ isOpen: false, idToSuspend: null, action: null });
     }
   };
 
@@ -384,14 +393,29 @@ export default function TenantsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                     {format(new Date(t.createdAt), "MMM d, yyyy")}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    {t.status === "active" && (
+                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                    {t.status === "active" ? (
                       <button
-                        onClick={() => handleSuspendClick(t.id)}
+                        onClick={() => handleActionClick(t.id, 'suspend')}
                         className="text-xs text-red-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         Suspend
                       </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleActionClick(t.id, 'activate')}
+                          className="text-xs text-emerald-600 hover:text-emerald-800 font-medium px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => handleActionClick(t.id, 'delete')}
+                          className="text-xs text-zinc-600 hover:text-red-800 font-medium px-3 py-1.5 rounded-lg hover:bg-zinc-100 hover:text-red-600 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -646,16 +670,30 @@ export default function TenantsPage() {
         </div>
       )}
 
-      {/* Suspend Confirmation Modal */}
+      {/* Action Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmState.isOpen}
-        onCancel={() => setConfirmState({ isOpen: false, idToSuspend: null })}
-        onConfirm={handleSuspendConfirm}
-        title="Suspend Tenant"
-        message="Are you sure you want to suspend this organization? All operations and access for their users will be temporarily halted."
-        confirmText="Yes, Suspend Tenant"
+        onCancel={() => setConfirmState({ isOpen: false, idToSuspend: null, action: null })}
+        onConfirm={handleConfirmAction}
+        title={
+          confirmState.action === 'suspend' ? "Suspend Tenant" :
+          confirmState.action === 'activate' ? "Restore Tenant" :
+          "Delete Tenant"
+        }
+        message={
+          confirmState.action === 'suspend' 
+            ? "Are you sure you want to suspend this organization? All operations and access for their users will be temporarily halted."
+            : confirmState.action === 'activate'
+            ? "Are you sure you want to restore this organization? Their users will immediately regain access to the platform."
+            : "Are you sure you want to permanently delete this organization? This action cannot be undone and will wipe all associated data."
+        }
+        confirmText={
+          confirmState.action === 'suspend' ? "Yes, Suspend" :
+          confirmState.action === 'activate' ? "Yes, Restore" :
+          "Yes, Delete Permanently"
+        }
         cancelText="Cancel"
-        isDestructive={true}
+        isDestructive={confirmState.action === 'suspend' || confirmState.action === 'delete'}
       />
     </div>
   );
