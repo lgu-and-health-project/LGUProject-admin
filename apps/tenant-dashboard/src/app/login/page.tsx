@@ -27,7 +27,6 @@ export default function LoginPage() {
           >
             <AppLogo iconSize={36}/>
           </h1>
-          <p className="login-subtitle"></p>
         </div>
         <form className="login-form" onSubmit={handleLogin}>
           <div className="input-group">
