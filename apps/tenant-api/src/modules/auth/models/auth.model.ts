@@ -22,12 +22,6 @@ export class LoginResponse {
 }
 
 @ObjectType()
-export class MeResponse {
-  @Field(() => CurrentUser)
-  user!: CurrentUser;
-}
-
-@ObjectType()
 export class CurrentUser {
   @Field()
   userId!: string;
@@ -43,4 +37,10 @@ export class CurrentUser {
 
   @Field(() => String, { nullable: true })
   departmentId!: string | null;
+}
+
+@ObjectType()
+export class MeResponse {
+  @Field(() => CurrentUser)
+  user!: CurrentUser;
 }

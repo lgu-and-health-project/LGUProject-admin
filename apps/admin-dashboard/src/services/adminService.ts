@@ -1,4 +1,4 @@
-fimport { fetchApi } from "./apiClient";
+import { fetchApi } from "./apiClient";
 
 export type AdminStatus = "PENDING_APPROVAL" | "INVITED" | "ACTIVE" | "REJECTED" | "SUSPENDED";
 export type AdminRole = "ROOT_SUPERADMIN" | "ADMIN";

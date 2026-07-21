@@ -42,7 +42,6 @@ export default function AdministratorsPage() {
   const [inviteSuccessLink, setInviteSuccessLink] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
-  // Confirm Modal State
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     idToDelete: string | null;
