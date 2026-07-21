@@ -13,7 +13,7 @@ import { AuthService } from './auth.service';
       useFactory: (config: ConfigService) => ({
         secret:
           config.get<string>('JWT_SECRET') || 'super-secret-key-change-me',
-        signOptions: { expiresIn: '2h' }, // Session expiry
+        signOptions: { expiresIn: '15m' }, // Session expiry
       }),
     }),
   ],

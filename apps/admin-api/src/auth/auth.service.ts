@@ -33,9 +33,38 @@ export class AuthService {
 
   async login(user: any) {
     const payload = { email: user.email, sub: user.id, role: user.role };
+    const access_token = await this.jwtService.signAsync(payload);
+    const refresh_token = await this.jwtService.signAsync(
+      { ...payload, type: 'refresh' },
+      { expiresIn: '7d' },
+    );
     return {
-      access_token: await this.jwtService.signAsync(payload),
+      access_token,
+      refresh_token,
       user,
     };
+  }
+
+  async refresh(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken);
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
+      // Re-validate the user to ensure they are still active
+      const admin = await this.prisma.superAdmin.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!admin || admin.status === 'REJECTED' || admin.status === 'SUSPENDED') {
+        throw new UnauthorizedException('Account has been restricted');
+      }
+
+      const { passwordHash, ...user } = admin;
+      return this.login(user);
+    } catch (e) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 }
