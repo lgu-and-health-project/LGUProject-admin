@@ -16,7 +16,6 @@ export default function Sidebar() {
       </div>
       <nav className="sidebar-nav">
         {APP_TABS.map((tab) => {
-          // If the role doesn't have "read" access to the module, it is completely hidden
           if (!hasAccess(role, tab.id, "read")) return null;
 
           const isActive = pathname === tab.href;

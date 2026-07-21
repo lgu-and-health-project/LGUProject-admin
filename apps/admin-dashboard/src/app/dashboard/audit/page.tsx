@@ -175,7 +175,7 @@ export default function AuditLogsPage() {
                 {paginatedLogs.map((log) => {
                   const { label, icon: ActionIcon, color } = getActionDetails(log.action);
                   return (
-                    <tr key={log.id} className="hover:bg-background/50 transition-colors group h-[10%]">
+                    <tr key={log.id} className="hover:bg-background/50 transition-colors group">
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                         {format(new Date(log.createdAt), "MMM d, yyyy")}
                         <div className="text-xs opacity-70">{format(new Date(log.createdAt), "h:mm:ss a")}</div>
@@ -200,9 +200,9 @@ export default function AuditLogsPage() {
                 
                 {/* Empty rows to stretch table height evenly */}
                 {Array.from({ length: Math.max(0, itemsPerPage - paginatedLogs.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent h-[10%]">
+                  <tr key={`empty-${index}`} className="hover:bg-transparent">
                     <td colSpan={4} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      -
+                      <div className="h-8 w-8"></div>
                     </td>
                   </tr>
                 ))}

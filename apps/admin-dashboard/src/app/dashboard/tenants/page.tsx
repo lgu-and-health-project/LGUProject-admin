@@ -357,7 +357,7 @@ export default function TenantsPage() {
               {paginatedTenants.map((t) => (
                 <tr
                   key={t.id}
-                  className="hover:bg-background/50 transition-colors group h-[10%]"
+                  className="hover:bg-background/50 transition-colors group"
                 >
                   <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center">
@@ -417,9 +417,9 @@ export default function TenantsPage() {
                 
                 {/* Empty rows to stretch table height evenly */}
                 {Array.from({ length: Math.max(0, itemsPerPage - paginatedTenants.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent h-[10%]">
+                  <tr key={`empty-${index}`} className="hover:bg-transparent">
                     <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      -
+                      <div className="h-8 w-8"></div>
                     </td>
                   </tr>
                 ))}

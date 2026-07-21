@@ -10,11 +10,11 @@ interface DashboardTemplateProps {
   children: ReactNode;
 }
 
-export default function DashboardTemplate({ 
-  module, 
-  title, 
-  description, 
-  children 
+export default function DashboardTemplate({
+  module,
+  title,
+  description,
+  children
 }: DashboardTemplateProps) {
   const { role } = useRole();
 
@@ -35,7 +35,7 @@ export default function DashboardTemplate({
         <h1 className="page-title">{title}</h1>
         <p className="page-description">{description}</p>
       </div>
-      
+
       <div className="card-grid">
         {children}
       </div>
