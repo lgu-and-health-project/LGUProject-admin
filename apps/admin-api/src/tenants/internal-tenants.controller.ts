@@ -4,6 +4,7 @@ import {
   Param,
   NotFoundException,
   ForbiddenException,
+  Post,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 
@@ -29,5 +30,10 @@ export class InternalTenantsController {
     }
 
     return result;
+  }
+
+  @Post('complete-setup/:registrationKey')
+  async completeSetup(@Param('registrationKey') registrationKey: string) {
+    return this.tenantsService.completeSetup(registrationKey);
   }
 }

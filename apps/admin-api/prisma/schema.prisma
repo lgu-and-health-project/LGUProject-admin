@@ -47,21 +47,12 @@ model LguTenant {
   apiUrl       String?
   status          String    @default("active") // "active" | "suspended" | "maintenance"
   registrationKey String?   @unique
+  sysAdminEmail   String?
   createdAt       DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
 
-model OnboardingRequest {
-  id            String    @id @default(uuid())
-  orgCode       String    @unique
-  orgName       String
-  level         String    // "province" | "city" | "municipality" | "barangay"
-  sysAdminEmail String
-  status        String    @default("pending") // "pending" | "provisioning" | "completed" | "failed"
-  errorMessage  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
+
 
 model SuperAdminAuditLog {
   id         String     @id @default(uuid())

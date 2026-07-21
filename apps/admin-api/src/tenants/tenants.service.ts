@@ -25,9 +25,10 @@ export class TenantsService {
     const existing = await this.prisma.lguTenant.findUnique({
       where: { code: data.code },
     });
+
     if (existing) {
       throw new ConflictException(
-        `Tenant with code ${data.code} already exists`,
+        `Tenant organization with code '${data.code}' already exists.`
       );
     }
 
@@ -39,18 +40,9 @@ export class TenantsService {
         code: data.code,
         name: data.name,
         level: data.level,
-        status: 'active',
+        status: 'pending_setup',
         registrationKey,
-      },
-    });
-
-    await this.prisma.onboardingRequest.create({
-      data: {
-        orgCode: data.code,
-        orgName: data.name,
-        level: data.level,
         sysAdminEmail: data.sysAdminEmail,
-        status: 'provisioning',
       },
     });
 
@@ -83,7 +75,7 @@ export class TenantsService {
       await this.auditLogsService.logAction(
         actor.sub,
         'suspend_tenant',
-        `Suspended tenant organization: ${tenant.name}`,
+        `Suspended an organization: ${tenant.name}`,
       );
     }
 
@@ -102,8 +94,8 @@ export class TenantsService {
     if (actor && actor.sub) {
       await this.auditLogsService.logAction(
         actor.sub,
-        'activate_tenant',
-        `Suspended tenant organization activated: ${tenant.name}`,
+        'Reactivated Tenant',
+        `Reactivated a suspended organization: ${tenant.name}`,
       );
     }
 
@@ -122,7 +114,7 @@ export class TenantsService {
       await this.auditLogsService.logAction(
         actor.sub,
         'delete_tenant',
-        `Deleted tenant organization: ${tenant.name}`,
+        `Deleted an organization: ${tenant.name}`,
       );
     }
 
@@ -138,21 +130,37 @@ export class TenantsService {
         name: true,
         level: true,
         status: true,
-      }
+        sysAdminEmail: true,
+      },
     });
 
     if (!tenant) {
       return { valid: false, reason: 'NOT_FOUND' };
     }
 
-    if (tenant.status !== 'active') {
+    if (tenant.status !== 'active' && tenant.status !== 'pending_setup') {
       return { valid: false, reason: 'SUSPENDED', tenant };
     }
 
-    const onboardingRequest = await this.prisma.onboardingRequest.findUnique({
-      where: { orgCode: tenant.code },
+    return {
+      valid: true,
+      tenant,
+      expectedEmail: tenant.sysAdminEmail,
+    };
+  }
+
+  async completeSetup(registrationKey: string) {
+    const tenant = await this.prisma.lguTenant.findUnique({
+      where: { registrationKey },
     });
 
-    return { valid: true, tenant, expectedEmail: onboardingRequest?.sysAdminEmail };
+    if (!tenant) throw new Error('Tenant not found');
+
+    const result = await this.prisma.lguTenant.update({
+      where: { id: tenant.id },
+      data: { status: 'active' },
+    });
+
+    return result;
   }
 }
