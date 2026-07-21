@@ -113,7 +113,7 @@ export class TenantsService {
     if (actor && actor.sub) {
       await this.auditLogsService.logAction(
         actor.sub,
-        'delete_tenant',
+        'Removed Tenant',
         `Deleted an organization: ${tenant.name}`,
       );
     }
