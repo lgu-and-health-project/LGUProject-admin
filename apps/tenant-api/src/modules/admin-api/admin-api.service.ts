@@ -35,6 +35,17 @@ export class AdminApiService {
     }
   }
 
+  async completeSetup(registrationKey: string) {
+    try {
+      const url = `${this.adminApiUrl}/internal/tenants/complete-setup/${registrationKey}`;
+      const response = await firstValueFrom(this.httpService.post(url));
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Failed to complete setup on admin-api: ${error.message}`);
+      // Non-fatal, just log it, but we can throw if we want strict consistency
+    }
+  }
+
   @Cron(CronExpression.EVERY_HOUR)
   async pollTenantStatus() {
     this.logger.log('Polling tenant status from admin-api...');

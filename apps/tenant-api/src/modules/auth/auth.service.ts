@@ -147,6 +147,9 @@ export class AuthService {
       },
     });
 
+    // Notify admin-api that setup is complete so status changes from pending_setup to active
+    await this.adminApiService.completeSetup(registrationKey);
+
     await this.prisma.auditLog.create({
       data: {
         orgCode: user.orgCode,
