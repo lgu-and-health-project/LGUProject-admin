@@ -82,7 +82,12 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    
     // Overwrite the cookies to invalidate them instantly on the client side
     res.clearCookie('access_token', { path: '/' });
     res.clearCookie('refresh_token', { path: '/auth' });

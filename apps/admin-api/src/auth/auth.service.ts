@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -31,40 +32,96 @@ export class AuthService {
     return result;
   }
 
-  async login(user: any) {
+  async login(user: any, familyId?: string) {
     const payload = { email: user.email, sub: user.id, role: user.role };
     const access_token = await this.jwtService.signAsync(payload);
-    const refresh_token = await this.jwtService.signAsync(
-      { ...payload, type: 'refresh' },
-      { expiresIn: '7d' },
-    );
+    
+    // Generate stateful refresh token
+    const refreshTokenPlain = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
+    const newFamilyId = familyId || crypto.randomUUID();
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+    // Cleanup expired tokens for this user to prevent database bloat
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        adminId: user.id,
+        expiresAt: { lt: new Date() },
+      },
+    });
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash,
+        familyId: newFamilyId,
+        expiresAt,
+        adminId: user.id,
+      },
+    });
+
     return {
       access_token,
-      refresh_token,
+      refresh_token: refreshTokenPlain,
       user,
     };
   }
 
-  async refresh(refreshToken: string) {
-    try {
-      const payload = await this.jwtService.verifyAsync(refreshToken);
-      if (payload.type !== 'refresh') {
-        throw new UnauthorizedException('Invalid token type');
-      }
+  async refresh(refreshTokenPlain: string) {
+    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
 
-      // Re-validate the user to ensure they are still active
-      const admin = await this.prisma.superAdmin.findUnique({
-        where: { id: payload.sub },
+    const tokenRecord = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { admin: true }
+    });
+
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (tokenRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    if (tokenRecord.isRevoked) {
+      // THE TRAP: Token reuse detected! Revoke the entire family
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: tokenRecord.familyId },
+        data: { isRevoked: true },
       });
+      throw new UnauthorizedException('Token reuse detected. All sessions revoked.');
+    }
 
-      if (!admin || admin.status === 'REJECTED' || admin.status === 'SUSPENDED') {
-        throw new UnauthorizedException('Account has been restricted');
-      }
+    // Check if user is still valid
+    const admin = tokenRecord.admin;
+    if (!admin || admin.status === 'REJECTED' || admin.status === 'SUSPENDED') {
+      throw new UnauthorizedException('Account has been restricted');
+    }
 
-      const { passwordHash, ...user } = admin;
-      return this.login(user);
+    // Mark current token as revoked
+    await this.prisma.refreshToken.update({
+      where: { id: tokenRecord.id },
+      data: { isRevoked: true },
+    });
+
+    const { passwordHash, ...user } = admin;
+    // Issue a new token pair in the same family
+    return this.login(user, tokenRecord.familyId);
+  }
+
+  async logout(refreshTokenPlain: string) {
+    if (!refreshTokenPlain) return;
+    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
+    
+    // Attempt to revoke the token, ignore if not found
+    try {
+      await this.prisma.refreshToken.update({
+        where: { tokenHash },
+        data: { isRevoked: true },
+      });
     } catch (e) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      // Ignore if not found
     }
   }
 }
