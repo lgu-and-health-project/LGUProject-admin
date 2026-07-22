@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { RoleProvider } from "@/components/RoleProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
-  title: "LGU Staff Dashboard",
-  description: "Dashboard for Local Government Unit Staff",
+  title: "LGU Admin Platform",
+  description: "Secure Management Portal for Local Government Units",
 };
 
 export default function RootLayout({
@@ -24,11 +18,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body>
-        <RoleProvider>
-          {children}
-        </RoleProvider>
+        {children}
       </body>
     </html>
   );
