@@ -31,7 +31,7 @@ export default function AdministratorsPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -517,8 +517,8 @@ export default function AdministratorsPage() {
                 );
               })
             )}
-          
-                
+
+
                 {/* Empty rows to stretch table height evenly */}
                 {Array.from({ length: Math.max(0, itemsPerPage - paginatedAdmins.length) }).map((_, index) => (
                   <tr key={`empty-${index}`} className="hover:bg-transparent">

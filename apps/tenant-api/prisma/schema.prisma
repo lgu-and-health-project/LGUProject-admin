@@ -19,12 +19,51 @@ model Organization {
   registrationKey     String   @unique
   createdAt           DateTime @default(now())
 
+  // PSGC Profile
+  psgcCode            String?  @unique
+  entityName          String?
+  entityCategory      String?
+  region              String?
+  province            String?
+  cityMunicipality    String?
+  barangay            String?
+  cityClassification  String?
+  sysadminEmail       String?
+  sysadminName        String?
+  headOfOfficeName    String?
+  contactNumber       String?
+  officialEmail       String?
+
   departments  Department[]
   staff        StaffUser[]
   invites      StaffInvite[]
   citizens     CitizenUser[]
   applications ApplicationCase[]
   auditLogs    AuditLog[]
+  roles        Role[]
+}
+
+model Role {
+  id              String   @id @default(uuid())
+  orgCode         String
+  org             Organization @relation(fields: [orgCode], references: [code])
+  roleName        String
+  isSystemDefault Boolean  @default(false)
+
+  permissions     RolePermission[]
+  staff           StaffUser[]
+
+  @@index([orgCode])
+}
+
+model RolePermission {
+  id       String @id @default(uuid())
+  roleId   String
+  role     Role   @relation(fields: [roleId], references: [id])
+  module   String
+  actions  String // Stored as JSON string or comma-separated
+
+  @@index([roleId])
 }
 
 model Department {
@@ -45,20 +84,42 @@ model StaffUser {
   orgCode      String
   org          Organization @relation(fields: [orgCode], references: [code])
   email        String       @unique
+  name         String?
   passwordHash String? // nullable — Google OAuth users may have none
   authProvider String       @default("password") // "password" | "google"
   status       String       @default("active") // "active" | "suspended"
-  baseRole     String
-  departmentId String
-  department   Department   @relation(fields: [departmentId], references: [id])
+  
+  // Staff Management fields
+  office            String?
+  officeOtherText   String?
+  positionTitle     String?
+  appointmentStatus String?
+  roleId            String?
+  role              Role?      @relation(fields: [roleId], references: [id])
+  accessExpiry      DateTime?
+
+  baseRole     String?
+  departmentId String?
+  department   Department?  @relation(fields: [departmentId], references: [id])
   createdAt    DateTime     @default(now())
 
   employee    Employee?
   grants      PermissionGrant[]
+  overrides   StaffPermissionOverride[]
   invitesSent StaffInvite[]     @relation("InvitedBy")
   auditLogs   AuditLog[]
 
   @@index([orgCode])
+}
+
+model StaffPermissionOverride {
+  id          String    @id @default(uuid())
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
+  module      String
+  actions     String    // Stored as JSON string or comma-separated
+
+  @@index([staffUserId])
 }
 
 model StaffInvite {
