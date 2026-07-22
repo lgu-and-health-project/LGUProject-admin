@@ -3,20 +3,40 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #09090b;
-  --bg-secondary: #18181b;
-  --bg-tertiary: #27272a;
+  /* Light theme by default */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-tertiary: #e4e4e7;
   
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
   --text-tertiary: #71717a;
   
   --accent-primary: #3b82f6;
   --accent-hover: #2563eb;
-  --accent-glow: rgba(59, 130, 246, 0.5);
+  --accent-glow: rgba(59, 130, 246, 0.3);
   
-  --border-color: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(24, 24, 27, 0.7);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --bg-tertiary: #27272a;
+    
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    
+    --accent-primary: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-glow: rgba(59, 130, 246, 0.5);
+    
+    --border-color: rgba(255, 255, 255, 0.1);
+    --glass-bg: rgba(24, 24, 27, 0.7);
+  }
 }
 
 body {
@@ -498,10 +518,12 @@ body {
   width: 100%;
   max-width: 440px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
 }
 .login-input {
   width: 100%;
-  background-color: rgba(0,0,0,0.2);
+  box-sizing: border-box;
+  background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   padding: 0.75rem 1rem;
@@ -532,3 +554,10 @@ body {
   font-size: 0.875rem;
 }
 .input-group { margin-bottom: 1.5rem; }
+
+.login-footer {
+  text-align: center;
+  margin-top: 2rem;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}

@@ -14,7 +14,7 @@ export default function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    window.location.href = "/";
+    window.location.href = "/dashboard";
   };
 
   return (
@@ -25,7 +25,7 @@ export default function LoginPage() {
             className="login-title"
             style={{ display: "flex", justifyContent: "center" }}
           >
-            <AppLogo iconSize={36}/>
+            <AppLogo iconSize={36} />
           </h1>
         </div>
         <form className="login-form" onSubmit={handleLogin}>

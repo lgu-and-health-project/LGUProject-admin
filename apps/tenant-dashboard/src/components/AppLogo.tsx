@@ -8,7 +8,7 @@ interface AppLogoProps {
 
 export default function AppLogo({ className = "", iconSize = 28 }: AppLogoProps) {
   return (
-    <span className={`app-logo ${className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+    <span className={`app-logo ${className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)' }}>
       Lingkod <Landmark size={iconSize} strokeWidth={2.5} /> Lokal
     </span>
   );
