@@ -100,13 +100,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto relative">
-      <div className="mb-8">
+    <div className="p-8 w-full relative">
+      <header className="mb-8">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Account Settings</h1>
         <p className="text-text-secondary text-sm mt-1">
           Manage your personal profile and account security.
         </p>
-      </div>
+      </header>
 
       <div className="bg-surface rounded-2xl border border-text-secondary/10 shadow-sm overflow-hidden mb-8">
         <div className="px-6 py-5 border-b border-text-secondary/10 bg-background/50 flex items-center">

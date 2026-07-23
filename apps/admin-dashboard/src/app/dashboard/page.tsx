@@ -36,7 +36,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="p-8 w-full h-full flex flex-col max-w-7xl mx-auto">
+    <div className="p-8 w-full h-full flex flex-col">
       {/* Page Header */}
       <div className="mb-8 flex-shrink-0">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Platform Overview</h1>

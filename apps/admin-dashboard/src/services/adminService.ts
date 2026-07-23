@@ -1,6 +1,6 @@
 import { fetchApi } from "./apiClient";
 
-export type AdminStatus = "PENDING_APPROVAL" | "INVITED" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+export type AdminStatus = "invited" | "active" | "revoked";
 export type AdminRole = "ROOT_SUPERADMIN" | "ADMIN";
 
 export interface AdminUser {
@@ -12,6 +12,7 @@ export interface AdminUser {
   appointedBy?: { fullName: string } | null;
   appointedByName?: string | null;
   createdAt: string;
+  inviteToken?: string | null;
 }
 
 export const adminService = {

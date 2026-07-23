@@ -113,15 +113,13 @@ export default function AdministratorsPage() {
         }
         return [...prev, newAdmin];
       });
-      if (newAdmin.status === "PENDING_APPROVAL") {
-        setInviteSuccessLink("PENDING");
-      } else {
-        setInviteSuccessLink(
-          `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
-        );
-      }
+      
+      setInviteSuccessLink(
+        `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
+      );
+      
       setIsCopied(false);
-      toast.success(newAdmin.status === "PENDING_APPROVAL" ? "Invite sent for approval!" : "Invite created and sent successfully!");
+      toast.success("Invite created and sent successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to invite administrator");
     } finally {
@@ -129,34 +127,14 @@ export default function AdministratorsPage() {
     }
   };
 
-  const handleApproveAdmin = async (id: string) => {
-    try {
-      const updatedAdmin: any = await adminService.approveAdmin(id);
-      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
-      setInviteForm({ fullName: updatedAdmin.fullName, email: updatedAdmin.email, role: updatedAdmin.role });
-      setInviteSuccessLink(`${window.location.origin}/invite?token=${updatedAdmin.inviteToken}`);
-      setIsInviteModalOpen(true);
-      toast.success("Administrator approved successfully!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve administrator");
-    }
-  };
-
-  const handleRejectPendingAdmin = async (id: string) => {
-    try {
-      const updatedAdmin = await adminService.rejectPendingAdmin(id);
-      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
-      toast.success("Administrator rejected.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject administrator");
-    }
-  };
-
   const handleResendInvite = async (id: string) => {
     try {
       toast.loading("Resending invite...", { id: "resend-invite" });
-      await adminService.resendInvite(id);
+      const res = await adminService.resendInvite(id);
       toast.success("Invitation resent successfully!", { id: "resend-invite" });
+      if (res.inviteToken) {
+        setAdmins(prev => prev.map(a => a.id === id ? { ...a, inviteToken: res.inviteToken } : a));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend invite", { id: "resend-invite" });
     }
@@ -185,34 +163,22 @@ export default function AdministratorsPage() {
 
   const getStatusBadge = (status: AdminStatus) => {
     switch (status) {
-      case "ACTIVE":
+      case "active":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
             Active
           </span>
         );
-      case "PENDING_APPROVAL":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-            Pending Approval
-          </span>
-        );
-      case "INVITED":
+      case "invited":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
             Invited
           </span>
         );
-      case "SUSPENDED":
+      case "revoked":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-            Suspended
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-            Rejected
+            Revoked
           </span>
         );
       default:
@@ -406,30 +372,25 @@ export default function AdministratorsPage() {
                       )}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
-                      {admin.status === "ACTIVE"
+                      {admin.status === "active"
                         ? new Date(admin.createdAt).toLocaleDateString()
                         : "—"}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
-                      {admin.status === "PENDING_APPROVAL" ? (
+                      {admin.status === "invited" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleApproveAdmin(admin.id)}
-                            className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200 transition-colors"
-                            title="Approve"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRejectPendingAdmin(admin.id)}
-                            className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-                            title="Reject"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : admin.status === "INVITED" ? (
-                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {admin.inviteToken && (
+                            <button
+                              onClick={() => {
+                                const link = `${window.location.origin}/invite?token=${admin.inviteToken}`;
+                                navigator.clipboard.writeText(link);
+                                toast.success("Invite link copied to clipboard!");
+                              }}
+                              className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
+                            >
+                              <Copy className="w-3 h-3 mr-1" /> Copy Link
+                            </button>
+                          )}
                           <button
                             onClick={() => handleResendInvite(admin.id)}
                             className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
@@ -444,7 +405,7 @@ export default function AdministratorsPage() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                      ) : admin.status === "REJECTED" ? (
+                      ) : admin.status === "revoked" ? (
                         <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleDeleteAdminClick(admin.id)}

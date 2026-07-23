@@ -34,13 +34,13 @@ export async function fetchApi<T>(
             method: "POST",
             credentials: "include",
           });
-          
+
           if (refreshRes.ok) {
             const refreshData = await refreshRes.json();
             if (typeof window !== "undefined") {
               localStorage.setItem("access_token", refreshData.access_token);
             }
-            
+
             // Retry the original request
             const newHeaders = {
               ...defaultHeaders,
@@ -52,7 +52,7 @@ export async function fetchApi<T>(
               credentials: "include",
               headers: newHeaders,
             });
-            
+
             if (retryResponse.ok) {
               if (retryResponse.status === 204) return {} as T;
               return await retryResponse.json() as T;
@@ -63,7 +63,6 @@ export async function fetchApi<T>(
         }
       }
 
-      // If refresh failed or we're already trying to refresh, log out
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
         if (!window.location.pathname.includes("/login")) {
