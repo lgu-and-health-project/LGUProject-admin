@@ -73,6 +73,12 @@ export class AuthResolver {
   @Query(() => MeResponse)
   @UseGuards(GqlAuthGuard)
   me(@CurrentUser() user: RequestUser): MeResponse {
-    return { user };
+    const permissions = this.authService.getPermissionsForRole(user.role);
+    return { 
+      user: {
+        ...user,
+        permissions,
+      }
+    };
   }
 }

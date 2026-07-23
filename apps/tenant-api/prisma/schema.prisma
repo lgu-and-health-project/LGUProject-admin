@@ -11,7 +11,7 @@ generator client {
 model Organization {
   code                String   @id
   name                String
-  level               String // "province" | "city" | "municipality" | "barangay"
+  level               String
   emailDomain         String?
   customDomain        String?
   usesGoogleWorkspace Boolean  @default(false)
@@ -88,7 +88,7 @@ model StaffUser {
   passwordHash String? // nullable — Google OAuth users may have none
   authProvider String       @default("password") // "password" | "google"
   status       String       @default("active") // "active" | "suspended"
-  
+
   // Staff Management fields
   office            String?
   officeOtherText   String?

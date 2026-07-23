@@ -1,24 +1,21 @@
 import { ObjectType, Field } from '@nestjs/graphql';
 
 @ObjectType()
-export class AuthUser {
+export class ModulePermission {
   @Field()
-  id!: string;
+  module!: string;
 
-  @Field()
-  email!: string;
+  @Field(() => Boolean)
+  create!: boolean;
 
-  @Field(() => String, { nullable: true })
-  role!: string | null;
+  @Field(() => Boolean)
+  read!: boolean;
 
-  @Field()
-  orgCode!: string;
-}
+  @Field(() => Boolean)
+  update!: boolean;
 
-@ObjectType()
-export class LoginResponse {
-  @Field(() => AuthUser)
-  user!: AuthUser;,
+  @Field(() => Boolean)
+  delete!: boolean;
 }
 
 @ObjectType()
@@ -37,6 +34,15 @@ export class CurrentUser {
 
   @Field(() => String, { nullable: true })
   departmentId!: string | null;
+
+  @Field(() => [ModulePermission])
+  permissions!: ModulePermission[];
+}
+
+@ObjectType()
+export class LoginResponse {
+  @Field(() => CurrentUser)
+  user!: CurrentUser;
 }
 
 @ObjectType()
