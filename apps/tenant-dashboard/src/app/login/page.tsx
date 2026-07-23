@@ -4,17 +4,29 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import AppLogo from "@/components/AppLogo";
 import { Eye, EyeOff } from "lucide-react";
+import { authService } from "@/services/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    window.location.href = "/dashboard";
+    try {
+      await authService.login(email, password);
+      window.location.href = "/";
+    } catch (err: any) {
+      setError(err.message || "Failed to login. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,6 +40,11 @@ export default function LoginPage() {
             <AppLogo iconSize={36} />
           </h1>
         </div>
+        {error && (
+          <div style={{ backgroundColor: "#fee2e2", color: "#b91c1c", padding: "0.75rem", borderRadius: "8px", marginBottom: "1rem", fontSize: "0.875rem", textAlign: "center" }}>
+            {error}
+          </div>
+        )}
         <form className="login-form" onSubmit={handleLogin}>
           <div className="input-group">
             <label className="input-label" htmlFor="email">

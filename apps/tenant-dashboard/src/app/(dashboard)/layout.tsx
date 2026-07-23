@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ import {
   TrendingUp,
   HardHat
 } from "lucide-react";
+import { authService, CurrentUser } from "@/services/auth";
 
 export default function DashboardLayout({
   children,
@@ -30,21 +31,41 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = () => {
-    // For now, mock logout
-    window.location.href = "/login";
+  useEffect(() => {
+    const fetchUser = async () => {
+      const u = await authService.getUser();
+      if (!u) {
+        router.push("/login");
+      } else {
+        setUser(u);
+      }
+      setLoading(false);
+    };
+    fetchUser();
+  }, [router]);
+
+  const handleLogout = async () => {
+    await authService.logout();
+    router.push("/login");
   };
 
-  const adminItems = [
+  const hasAccess = (moduleId: string) => {
+    if (!user) return false;
+    return user.permissions.some(p => p.module === moduleId && p.read);
+  };
+
+  const allAdminItems = [
     { name: "Organization Profile", href: "/profile", icon: Building2 },
     { name: "Staff Directory", href: "/staff", icon: Users },
     { name: "Role Manager", href: "/roles", icon: UserCog },
   ];
 
-  const lguModules = [
+  const allLguModules = [
     { name: "Financial", href: "/financial", icon: Landmark },
     { name: "Personnel/HR", href: "/hr", icon: Briefcase },
     { name: "Health Records", href: "/health", icon: HeartPulse },
@@ -60,9 +81,20 @@ export default function DashboardLayout({
     { name: "Engineering", href: "/engineering", icon: HardHat },
   ];
 
-  const allItems = [...adminItems, ...lguModules];
+  const adminItems = allAdminItems.filter(item => hasAccess(item.href.replace("/", "")));
+  const lguModules = allLguModules.filter(item => hasAccess(item.href.replace("/", "")));
+
+  const allItems = [...allAdminItems, ...allLguModules];
 
   const currentNav = allItems.find((item) => item.href === pathname) || { name: "Dashboard" };
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", backgroundColor: "var(--bg-primary)" }}>
+        <p style={{ color: "var(--text-tertiary)" }}>Loading workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
@@ -118,7 +150,7 @@ export default function DashboardLayout({
         {/* Sidebar Navigation */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 1rem", display: "flex", flexDirection: "column", gap: "0.5rem", overflowX: "hidden" }}>
           {/* Admin Navigation */}
-          {!collapsed && (
+          {!collapsed && adminItems.length > 0 && (
             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "0.5rem" }}>
               Administration
             </div>
@@ -176,9 +208,9 @@ export default function DashboardLayout({
               </Link>
             );
           })}
-          
+
           {/* LGU Modules Navigation */}
-          {!collapsed && (
+          {!collapsed && lguModules.length > 0 && (
             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "1rem" }}>
               LGU Modules
             </div>
@@ -288,8 +320,7 @@ export default function DashboardLayout({
         {/* Top Header */}
         <header style={{
           height: "70px",
-          backgroundColor: "var(--glass-bg)",
-          backdropFilter: "blur(12px)",
+          backgroundColor: "var(--bg-secondary)",
           borderBottom: "1px solid var(--border-color)",
           display: "flex",
           justifyContent: "space-between",
@@ -351,11 +382,11 @@ export default function DashboardLayout({
                 fontWeight: 700,
                 color: "white",
               }}>
-                SA
+                {user?.email?.[0]?.toUpperCase() || "U"}
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.2, color: "var(--text-primary)" }}>Sysadmin</span>
-                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>sysadmin@lgu.gov.ph</span>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.2, color: "var(--text-primary)" }}>{user?.role === 'sysadmin' ? 'Sysadmin' : 'Staff'}</span>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{user?.email}</span>
               </div>
             </div>
           </div>
@@ -366,9 +397,9 @@ export default function DashboardLayout({
           flex: 1,
           overflowY: "auto",
           padding: "2rem",
-          background: "radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent 400px), var(--bg-primary)",
+          backgroundColor: "var(--bg-primary)",
         }}>
-          <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+          <div style={{ width: "100%" }}>
             {children}
           </div>
         </main>
