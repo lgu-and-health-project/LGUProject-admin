@@ -25,12 +25,19 @@ export class TenantsController {
 
   @Post()
   createTenant(@Body() body: any, @Request() req: any) {
-    if (!body.code || !body.code.trim()) {
+    if (!body.psgcCode || !body.psgcCode.trim()) {
       throw new BadRequestException('Organization geographic code (PSGC) is strictly required.');
     }
-    if (!body.sysAdminEmail || !body.sysAdminEmail.trim()) {
+    if (!body.sysadminEmail || !body.sysadminEmail.trim()) {
       throw new BadRequestException('System Administrator email is strictly required.');
     }
+    
+    // Add email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(body.sysadminEmail.trim())) {
+      throw new BadRequestException('A valid System Administrator email address is required.');
+    }
+
     return this.tenantsService.createTenant(body, req.user);
   }
 

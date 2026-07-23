@@ -24,12 +24,12 @@ import toast from "react-hot-toast";
 
 interface Tenant {
   id: string;
-  code: string;
+  psgcCode: string;
   name: string;
   level: string;
   status: string;
   registrationKey?: string;
-  sysAdminEmail?: string;
+  sysadminEmail?: string;
   createdAt: string;
 }
 
@@ -65,10 +65,10 @@ export default function TenantsPage() {
   });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    code: "",
+    psgcCode: "",
     name: "",
     level: "municipality",
-    sysAdminEmail: "",
+    sysadminEmail: "",
   });
 
   const [psgcOptions, setPsgcOptions] = useState<any[]>([]);
@@ -99,31 +99,50 @@ export default function TenantsPage() {
     const fetchPsgc = async () => {
       setPsgcLoading(true);
       try {
-        let endpoint = "";
-        if (formData.level === "province") endpoint = "/provinces";
-        else if (formData.level === "city" || formData.level === "municipality") endpoint = "/cities-municipalities";
-        
-        if (!endpoint) return;
-        
-        if (psgcCache[endpoint]) {
-          if (isMounted) setPsgcOptions(psgcCache[endpoint]);
+        if (psgcCache['all']) {
+          if (isMounted) setPsgcOptions(psgcCache['all']);
         } else {
-          const res = await fetch(`https://psgc.cloud/api/v2${endpoint}`, {
-            headers: { 'Accept': 'application/json' }
+          const [regionsRes, provincesRes, cmRes] = await Promise.all([
+            fetch('https://psgc.gitlab.io/api/regions'),
+            fetch('https://psgc.gitlab.io/api/provinces'),
+            fetch('https://psgc.gitlab.io/api/cities-municipalities')
+          ]);
+          
+          const regions = await regionsRes.json();
+          const provinces = await provincesRes.json();
+          const cms = await cmRes.json();
+          
+          const regionMap: Record<string, string> = regions.reduce((acc: any, r: any) => ({ ...acc, [r.code]: r.regionName || r.name }), {});
+          const provinceMap: Record<string, string> = provinces.reduce((acc: any, p: any) => ({ ...acc, [p.code]: p.name }), {});
+          
+          const formattedRegions = regions.map((r: any) => ({
+            code: r.code,
+            name: r.name,
+            level: 'region',
+            subtext: 'Region'
+          }));
+          
+          const formattedProvinces = provinces.map((p: any) => ({
+            code: p.code,
+            name: p.name,
+            level: 'province',
+            subtext: `Province, ${regionMap[p.regionCode] || ''}`
+          }));
+          
+          const formattedCms = cms.map((c: any) => {
+            const type = c.isCity ? 'City' : 'Municipality';
+            const provName = provinceMap[c.provinceCode] ? `${provinceMap[c.provinceCode]}, ` : '';
+            return {
+              code: c.code,
+              name: c.name,
+              level: c.isCity ? 'city' : 'municipality',
+              subtext: `${type}, ${provName}${regionMap[c.regionCode] || ''}`
+            };
           });
-          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           
-          const json = await res.json();
-          const data = Array.isArray(json) ? json : (json.data || []);
-          
-          if (formData.level === "city") {
-             // Optional: Filter for cities if we want to be strict, but keeping both is fine for search
-             psgcCache[endpoint] = data;
-          } else {
-             psgcCache[endpoint] = data;
-          }
-          
-          if (isMounted) setPsgcOptions(data);
+          const combined = [...formattedRegions, ...formattedProvinces, ...formattedCms];
+          psgcCache['all'] = combined;
+          if (isMounted) setPsgcOptions(combined);
         }
       } catch (err) {
         console.error("Failed to fetch PSGC data", err);
@@ -136,7 +155,7 @@ export default function TenantsPage() {
     fetchPsgc();
     
     return () => { isMounted = false; };
-  }, [formData.level, isModalOpen]);
+  }, [isModalOpen]);
 
   const fuse = useMemo(
     () =>
@@ -187,9 +206,9 @@ export default function TenantsPage() {
   const handleAddTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const existing = tenants.find(t => t.code === formData.code);
+    const existing = tenants.find(t => t.psgcCode === formData.psgcCode);
     if (existing) {
-      toast.error(`The organization with code ${formData.code} is already registered!`);
+      toast.error(`The organization with code ${formData.psgcCode} is already registered!`);
       return;
     }
     
@@ -201,10 +220,10 @@ export default function TenantsPage() {
       });
       setIsModalOpen(false);
       setFormData({
-        code: "",
+        psgcCode: "",
         name: "",
         level: "municipality",
-        sysAdminEmail: "",
+        sysadminEmail: "",
       });
 
       // Show the generated registration key modal
@@ -260,7 +279,7 @@ export default function TenantsPage() {
   const filteredTenants = tenants.filter(
     (t) =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.code.toLowerCase().includes(searchQuery.toLowerCase()),
+      (t.psgcCode && t.psgcCode.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
@@ -287,10 +306,10 @@ export default function TenantsPage() {
         <button
           onClick={() => {
             setFormData({
-              code: "",
+              psgcCode: "",
               name: "",
               level: "municipality",
-              sysAdminEmail: "",
+              sysadminEmail: "",
             });
             setIsEditingCode(false);
             setDraftCode("");
@@ -369,7 +388,7 @@ export default function TenantsPage() {
                           {t.name}
                         </div>
                         <div className="text-xs text-text-secondary">
-                          Code: {t.code}
+                          Code: {t.psgcCode}
                         </div>
                       </div>
                     </div>
@@ -397,7 +416,7 @@ export default function TenantsPage() {
                   <td className="px-6 py-2 whitespace-nowrap">
                     <span className="text-sm text-foreground flex items-center">
                       <ShieldCheck className="w-4 h-4 mr-1.5 text-text-secondary" />
-                      {t.sysAdminEmail || "—"}
+                      {t.sysadminEmail || "—"}
                     </span>
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
@@ -469,27 +488,7 @@ export default function TenantsPage() {
             </div>
 
             <form onSubmit={handleAddTenant} className="p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Level
-                </label>
-                <select
-                  value={formData.level}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      level: e.target.value,
-                      name: "",
-                      code: "",
-                    });
-                  }}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="province">Province</option>
-                  <option value="city">City</option>
-                  <option value="municipality">Municipality</option>
-                </select>
-              </div>
+
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">
@@ -499,7 +498,7 @@ export default function TenantsPage() {
                   <input
                     required
                     type="text"
-                    placeholder={`Enter ${formData.level} name...`}
+                    placeholder="Enter LGU name (e.g. City of Manila)..."
                     value={formData.name}
                     onChange={(e) => {
                       setFormData({ ...formData, name: e.target.value });
@@ -523,7 +522,8 @@ export default function TenantsPage() {
                             setFormData({
                               ...formData,
                               name: item.name,
-                              code: item.code,
+                              psgcCode: item.code,
+                              level: item.level,
                             });
                             setIsDropdownOpen(false);
                           }}
@@ -532,10 +532,7 @@ export default function TenantsPage() {
                             {item.name}
                           </div>
                           <div className="text-xs text-text-secondary mt-0.5">
-                            {formData.level === "province" && item.region}
-                            {(formData.level === "city" ||
-                              formData.level === "municipality") &&
-                              `${item.type || formData.level}, ${item.province || item.region}`}
+                            {item.subtext}
                           </div>
                         </div>
                       ))}
@@ -553,10 +550,10 @@ export default function TenantsPage() {
                     readOnly={!isEditingCode}
                     type="text"
                     placeholder="Enter unique code"
-                    value={isEditingCode ? draftCode : formData.code}
+                    value={isEditingCode ? draftCode : formData.psgcCode}
                     onChange={(e) => {
                       if (isEditingCode) setDraftCode(e.target.value);
-                      else setFormData({ ...formData, code: e.target.value });
+                      else setFormData({ ...formData, psgcCode: e.target.value });
                     }}
                     className={`w-full px-3 py-2 pr-20 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                       isEditingCode 
@@ -570,7 +567,13 @@ export default function TenantsPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setFormData({ ...formData, code: draftCode });
+                            const found = psgcOptions.find(o => o.code === draftCode);
+                            if (found) {
+                               setFormData({ ...formData, psgcCode: draftCode, name: found.name, level: found.level });
+                               toast.success(`Found: ${found.name}`);
+                            } else {
+                               toast.error("PSGC Code does not exist in the database.");
+                            }
                             setIsEditingCode(false);
                           }}
                           className="p-1 text-emerald-600 hover:bg-emerald-100 rounded transition-colors"
@@ -591,7 +594,7 @@ export default function TenantsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setDraftCode(formData.code);
+                          setDraftCode(formData.psgcCode);
                           setIsEditingCode(true);
                         }}
                         className="p-1 text-text-secondary hover:text-primary hover:bg-primary/10 rounded transition-colors"
@@ -617,9 +620,9 @@ export default function TenantsPage() {
                   required
                   type="email"
                   placeholder="sysadmin@sanjuan.gov.ph"
-                  value={formData.sysAdminEmail}
+                  value={formData.sysadminEmail}
                   onChange={(e) =>
-                    setFormData({ ...formData, sysAdminEmail: e.target.value })
+                    setFormData({ ...formData, sysadminEmail: e.target.value })
                   }
                   className="w-full px-3 py-2 rounded-lg bg-background border border-text-secondary/20 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
@@ -784,7 +787,7 @@ export default function TenantsPage() {
                   <div className="flex justify-between">
                     <div>
                       <div className="text-xs text-text-secondary mb-1">Code / PSGC</div>
-                      <div className="font-medium text-foreground">{selectedTenant.code}</div>
+                      <div className="font-medium text-foreground">{selectedTenant.psgcCode}</div>
                     </div>
                     <div>
                       <div className="text-xs text-text-secondary mb-1">Level</div>
@@ -818,7 +821,7 @@ export default function TenantsPage() {
                     <div className="text-xs text-text-secondary mb-1">Appointed Email</div>
                     <div className="font-medium text-foreground flex items-center">
                       <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
-                      {selectedTenant.sysAdminEmail || "Not specified"}
+                      {selectedTenant.sysadminEmail || "Not specified"}
                     </div>
                   </div>
 
