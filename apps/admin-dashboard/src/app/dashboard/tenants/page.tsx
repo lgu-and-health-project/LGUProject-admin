@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import Fuse from "fuse.js";
 import { format } from "date-fns";
 import { fetchApi } from "@/services/apiClient";
@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Pencil,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import toast from "react-hot-toast";
@@ -40,8 +41,18 @@ export default function TenantsPage() {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLevels, setSelectedLevels] = useState<string[]>(['province', 'city_huc', 'city_icc', 'city_component', 'municipality', 'barangay']);
+  const [locationRegion, setLocationRegion] = useState("");
+  const [locationProvince, setLocationProvince] = useState("");
+  const [regionsData, setRegionsData] = useState<any[]>([]);
+  const [provincesData, setProvincesData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    fetch('https://psgc.gitlab.io/api/regions').then(r=>r.json()).then(setRegionsData).catch(()=>{});
+    fetch('https://psgc.gitlab.io/api/provinces').then(r=>r.json()).then(setProvincesData).catch(()=>{});
+  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -75,6 +86,8 @@ export default function TenantsPage() {
   const [psgcLoading, setPsgcLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [draftCode, setDraftCode] = useState("");
@@ -87,6 +100,12 @@ export default function TenantsPage() {
       ) {
         setIsDropdownOpen(false);
       }
+      if (
+        filterRef.current &&
+        !filterRef.current.contains(event.target as Node)
+      ) {
+        setIsFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -94,7 +113,7 @@ export default function TenantsPage() {
 
   useEffect(() => {
     if (!isModalOpen) return;
-    
+
     let isMounted = true;
     const fetchPsgc = async () => {
       setPsgcLoading(true);
@@ -102,45 +121,98 @@ export default function TenantsPage() {
         if (psgcCache['all']) {
           if (isMounted) setPsgcOptions(psgcCache['all']);
         } else {
-          const [regionsRes, provincesRes, cmRes] = await Promise.all([
-            fetch('https://psgc.gitlab.io/api/regions'),
-            fetch('https://psgc.gitlab.io/api/provinces'),
-            fetch('https://psgc.gitlab.io/api/cities-municipalities')
+          const fetchEndpoint = async (endpoint: string) => {
+            try {
+              const res = await fetch(`https://psgc.gitlab.io/api/${endpoint}`);
+              if (!res.ok) throw new Error('Primary API failed');
+              return await res.json();
+            } catch (err) {
+              console.warn(`Primary API failed for ${endpoint}, trying fallback...`, err);
+              try {
+                const res = await fetch(`https://psgc.cloud/api/${endpoint}`);
+                if (!res.ok) throw new Error('Fallback API failed');
+                const data = await res.json();
+                return data.map((item: any) => ({
+                  ...item,
+                  regionName: item.name,
+                  isCity: item.type === 'City' || item.type === 'HUC' || item.type === 'ICC' || item.type === 'CC',
+                  provinceCode: item.code ? item.code.substring(0, 4) + '000000' : undefined,
+                  regionCode: item.code ? item.code.substring(0, 2) + '00000000' : undefined,
+                }));
+              } catch (fallbackErr) {
+                console.error(`Both APIs failed for ${endpoint}`, fallbackErr);
+                return [];
+              }
+            }
+          };
+
+          const [regions, provinces, cms, barangays] = await Promise.all([
+            fetchEndpoint('regions'),
+            fetchEndpoint('provinces'),
+            fetchEndpoint('cities-municipalities'),
+            fetchEndpoint('barangays')
           ]);
-          
-          const regions = await regionsRes.json();
-          const provinces = await provincesRes.json();
-          const cms = await cmRes.json();
-          
+
           const regionMap: Record<string, string> = regions.reduce((acc: any, r: any) => ({ ...acc, [r.code]: r.regionName || r.name }), {});
           const provinceMap: Record<string, string> = provinces.reduce((acc: any, p: any) => ({ ...acc, [p.code]: p.name }), {});
-          
+          const cmMap: Record<string, string> = cms.reduce((acc: any, c: any) => ({ ...acc, [c.code]: c.name }), {});
+
           const formattedRegions = regions.map((r: any) => ({
             code: r.code,
             name: r.name,
             level: 'region',
             subtext: 'Region'
           }));
-          
+
           const formattedProvinces = provinces.map((p: any) => ({
             code: p.code,
             name: p.name,
             level: 'province',
             subtext: `Province, ${regionMap[p.regionCode] || ''}`
           }));
-          
+
           const formattedCms = cms.map((c: any) => {
             const type = c.isCity ? 'City' : 'Municipality';
             const provName = provinceMap[c.provinceCode] ? `${provinceMap[c.provinceCode]}, ` : '';
+            let lguLevel = 'municipality';
+            
+            // PSGC API often drops city classification. Fallback to known HUCs/ICCs.
+            const hucs = [
+              "angeles", "bacolod", "baguio", "butuan", "cagayan de oro", "caloocan", "cebu", "davao", 
+              "general santos", "iligan", "iloilo", "lapu-lapu", "las piñas", "lucena", "makati", 
+              "malabon", "mandaluyong", "mandaue", "manila", "marikina", "muntinlupa", "navotas", 
+              "olongapo", "parañaque", "pasay", "pasig", "puerto princesa", "quezon", "san juan", 
+              "tacloban", "taguig", "valenzuela", "zamboanga"
+            ];
+            const iccs = ["cotabato", "dagupan", "naga", "ormoc", "santiago"];
+
+            const isHuc = c.type === 'HUC' || (c.isCity && hucs.some(h => c.name.toLowerCase().includes(h)));
+            const isIcc = c.type === 'ICC' || (c.isCity && iccs.some(i => c.name.toLowerCase().includes(i)));
+
+            if (isHuc) lguLevel = 'city_huc';
+            else if (isIcc) lguLevel = 'city_icc';
+            else if (c.isCity) lguLevel = 'city_component';
+            
             return {
               code: c.code,
               name: c.name,
-              level: c.isCity ? 'city' : 'municipality',
+              level: lguLevel,
               subtext: `${type}, ${provName}${regionMap[c.regionCode] || ''}`
             };
           });
-          
-          const combined = [...formattedRegions, ...formattedProvinces, ...formattedCms];
+
+          const formattedBarangays = barangays.map((b: any) => {
+            const cmName = b.municipalityCode ? cmMap[b.municipalityCode] : b.cityCode ? cmMap[b.cityCode] : '';
+            const provName = provinceMap[b.provinceCode] ? `${provinceMap[b.provinceCode]}, ` : '';
+            return {
+              code: b.code,
+              name: b.name,
+              level: 'barangay',
+              subtext: `Barangay, ${cmName ? cmName + ', ' : ''}${provName}${regionMap[b.regionCode] || ''}`
+            };
+          });
+
+          const combined = [...formattedRegions, ...formattedProvinces, ...formattedCms, ...formattedBarangays];
           psgcCache['all'] = combined;
           if (isMounted) setPsgcOptions(combined);
         }
@@ -151,29 +223,55 @@ export default function TenantsPage() {
         if (isMounted) setPsgcLoading(false);
       }
     };
-    
+
     fetchPsgc();
-    
+
     return () => { isMounted = false; };
   }, [isModalOpen]);
 
   const fuse = useMemo(
     () =>
       new Fuse(psgcOptions, {
-        keys: ["name"],
+        keys: [
+          { name: "name", weight: 2 },
+          { name: "subtext", weight: 1 }
+        ],
         threshold: 0.3,
+        ignoreLocation: true,
       }),
     [psgcOptions],
   );
 
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(formData.name);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(formData.name);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [formData.name]);
   const searchResults = useMemo(() => {
-    return formData.name
-      ? fuse
-          .search(formData.name)
-          .map((res) => res.item)
-          .slice(0, 50)
-      : psgcOptions.slice(0, 50);
-  }, [formData.name, fuse, psgcOptions]);
+    if (!debouncedSearchQuery) return psgcOptions.slice(0, 50);
+
+    const lowerQuery = debouncedSearchQuery.toLowerCase();
+    
+    // FAST PATH: Native substring search (Takes ~5ms instead of 500ms)
+    const exactMatches = psgcOptions.filter(
+      (item) =>
+        item.name.toLowerCase().includes(lowerQuery) ||
+        (item.subtext && item.subtext.toLowerCase().includes(lowerQuery))
+    );
+
+    if (exactMatches.length > 0) {
+      return exactMatches.slice(0, 50);
+    }
+
+    // SLOW PATH: Fallback to fuzzy search only if no exact substring matches found (Typo tolerance)
+    return fuse
+      .search(debouncedSearchQuery)
+      .map((res) => res.item)
+      .slice(0, 50);
+  }, [debouncedSearchQuery, fuse, psgcOptions]);
 
   const loadTenants = async () => {
     setLoading(true);
@@ -205,13 +303,13 @@ export default function TenantsPage() {
 
   const handleAddTenant = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const existing = tenants.find(t => t.psgcCode === formData.psgcCode);
     if (existing) {
       toast.error(`The organization with code ${formData.psgcCode} is already registered!`);
       return;
     }
-    
+
     setFormLoading(true);
     try {
       const response = await fetchApi<Tenant>("/tenants", {
@@ -276,11 +374,24 @@ export default function TenantsPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const filteredTenants = tenants.filter(
-    (t) =>
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.psgcCode && t.psgcCode.toLowerCase().includes(searchQuery.toLowerCase())),
-  );
+  const filteredTenants = tenants.filter((t) => {
+    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || (t.psgcCode && t.psgcCode.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesLevel = selectedLevels.includes(t.level);
+    
+    let matchesLocation = true;
+    if (t.psgcCode) {
+      if (locationProvince) {
+        const provPrefix = locationProvince.replace(/0+$/, '');
+        matchesLocation = t.psgcCode.startsWith(provPrefix);
+      } else if (locationRegion) {
+        const regPrefix = locationRegion.replace(/0+$/, '');
+        matchesLocation = t.psgcCode.startsWith(regPrefix);
+      }
+    }
+
+    return matchesSearch && matchesLevel && matchesLocation;
+  });
 
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
   const paginatedTenants = filteredTenants.slice(
@@ -290,7 +401,7 @@ export default function TenantsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, selectedLevels, locationRegion, locationProvince]);
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
@@ -322,18 +433,99 @@ export default function TenantsPage() {
         </button>
       </div>
 
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative max-w-md w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-text-secondary" />
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="relative w-full max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-text-secondary" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
+              placeholder="Search by name or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
-            placeholder="Search by name or code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <select
+              value={locationRegion}
+              onChange={(e) => { setLocationRegion(e.target.value); setLocationProvince(""); }}
+              className="w-full sm:w-48 px-3 py-2 bg-background border border-text-secondary/20 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors appearance-none cursor-pointer"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+            >
+              <option value="">All Regions</option>
+              {regionsData.map(r => (
+                <option key={r.code} value={r.code}>{r.name}</option>
+              ))}
+            </select>
+
+            {locationRegion && (
+              <select
+                value={locationProvince}
+                onChange={(e) => setLocationProvince(e.target.value)}
+                className="w-full sm:w-48 px-3 py-2 bg-background border border-text-secondary/20 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors appearance-none cursor-pointer animate-in fade-in slide-in-from-right-4 duration-200"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+              >
+                <option value="">All Provinces in Region</option>
+                {provincesData.filter(p => p.regionCode === locationRegion).map(p => (
+                  <option key={p.code} value={p.code}>{p.name}</option>
+                ))}
+              </select>
+            )}
+
+            {(locationRegion || locationProvince) && (
+              <button
+                onClick={() => { setLocationRegion(""); setLocationProvince(""); }}
+                className="p-2 text-text-secondary hover:text-primary bg-background border border-text-secondary/20 rounded-lg transition-colors flex items-center justify-center shrink-0"
+                title="Clear Location Filters"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-text-secondary/10">
+          <span className="text-xs font-semibold text-text-secondary self-center mr-2 uppercase tracking-wider">LGU Levels:</span>
+          {[
+            { id: 'province', label: 'Province' },
+            { id: 'city_huc', label: 'HUC' },
+            { id: 'city_icc', label: 'ICC' },
+            { id: 'city_component', label: 'Component City' },
+            { id: 'municipality', label: 'Municipality' },
+            { id: 'barangay', label: 'Barangay' },
+          ].map(level => {
+            const isSelected = selectedLevels.includes(level.id);
+            return (
+              <button
+                key={level.id}
+                onClick={() => {
+                  if (isSelected) setSelectedLevels(selectedLevels.filter(l => l !== level.id));
+                  else setSelectedLevels([...selectedLevels, level.id]);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  isSelected 
+                    ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20' 
+                    : 'bg-background text-text-secondary border-text-secondary/20 hover:border-primary/50 hover:text-foreground'
+                }`}
+              >
+                {level.label}
+              </button>
+            )
+          })}
+          
+          {selectedLevels.length < 7 && (
+            <button
+              onClick={() => setSelectedLevels(['province', 'city_huc', 'city_icc', 'city_component', 'municipality', 'barangay'])}
+              className="px-3 py-1 rounded-full text-xs font-medium transition-colors border bg-background text-text-secondary border-text-secondary/20 hover:text-primary hover:border-primary/50 flex items-center ml-auto"
+              title="Reset LGU Levels"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Reset Levels
+            </button>
+          )}
         </div>
       </div>
 
@@ -362,7 +554,7 @@ export default function TenantsPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                  SysAdmin
+                  System Administrator
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Registered
@@ -395,7 +587,12 @@ export default function TenantsPage() {
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 capitalize">
-                      {t.level}
+                      {
+                        t.level === 'city_huc' ? 'HUC' :
+                        t.level === 'city_icc' ? 'ICC' :
+                        t.level === 'city_component' ? 'Component City' :
+                        t.level
+                      }
                     </span>
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap">
@@ -432,8 +629,8 @@ export default function TenantsPage() {
                   </td>
                 </tr>
               ))}
-            
-                
+
+
                 {/* Empty rows to stretch table height evenly */}
                 {Array.from({ length: Math.max(0, itemsPerPage - paginatedTenants.length) }).map((_, index) => (
                   <tr key={`empty-${index}`} className="hover:bg-transparent">
@@ -445,7 +642,7 @@ export default function TenantsPage() {
               </tbody>
           </table>
         )}
-        
+
         {!loading && filteredTenants.length > 0 && (
           <div className="px-6 py-4 border-t border-text-secondary/10 flex items-center justify-between bg-background/30 mt-auto">
             <div className="text-sm text-text-secondary">
@@ -556,8 +753,8 @@ export default function TenantsPage() {
                       else setFormData({ ...formData, psgcCode: e.target.value });
                     }}
                     className={`w-full px-3 py-2 pr-20 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                      isEditingCode 
-                        ? "bg-background border-primary text-foreground" 
+                      isEditingCode
+                        ? "bg-background border-primary text-foreground"
                         : "bg-background/50 border-text-secondary/20 text-text-secondary"
                     }`}
                   />
@@ -610,7 +807,7 @@ export default function TenantsPage() {
               <div className="pt-4 mt-4 border-t border-text-secondary/10 space-y-2">
                 <label className="text-sm font-semibold text-foreground flex items-center">
                   <ShieldCheck className="w-4 h-4 mr-1.5 text-primary" />
-                  Initial SysAdmin Account
+                  Initial System Administrator Account
                 </label>
                 <p className="text-xs text-text-secondary mb-2">
                   This user will be authorized to appoint staff and configure
@@ -691,7 +888,7 @@ export default function TenantsPage() {
                   </div>
                 </div>
                 <div className="border-t border-text-secondary/10 pt-4">
-                  <div className="text-xs font-semibold text-text-secondary mb-1 text-left">Setup Link (for SysAdmin)</div>
+                  <div className="text-xs font-semibold text-text-secondary mb-1 text-left">Setup Link (for System Administration)</div>
                   <div className="flex items-center justify-between">
                     <code className="text-xs font-mono text-text-secondary truncate block w-full text-left mr-2" title={`${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}`}>
                       {`${process.env.NEXT_PUBLIC_TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?registrationKey=${newKeyModal.regKey}`}
@@ -738,7 +935,7 @@ export default function TenantsPage() {
           "Delete Tenant"
         }
         message={
-          confirmState.action === 'suspend' 
+          confirmState.action === 'suspend'
             ? "Are you sure you want to suspend this organization? All operations and access for their users will be temporarily halted."
             : confirmState.action === 'activate'
             ? "Are you sure you want to restore this organization? Their users will immediately regain access to the platform."
@@ -754,11 +951,11 @@ export default function TenantsPage() {
       />
       {/* Side Drawer Overlay */}
       {selectedTenant && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex justify-end bg-background/50 backdrop-blur-sm transition-all"
           onClick={() => setSelectedTenant(null)}
         >
-          <div 
+          <div
             className="w-full max-w-md bg-surface border-l border-text-secondary/10 shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
             onClick={(e) => e.stopPropagation()}
           >
@@ -774,7 +971,7 @@ export default function TenantsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
               {/* Org Details */}
               <section>
@@ -831,7 +1028,7 @@ export default function TenantsPage() {
                         <Activity className="w-4 h-4 mr-1.5" />
                         Pending Initial Setup
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div>
                           <div className="text-xs text-text-secondary mb-1">Registration Key</div>
@@ -845,7 +1042,7 @@ export default function TenantsPage() {
                             </button>
                           </div>
                         </div>
-                        
+
                         <div>
                           <div className="text-xs text-text-secondary mb-1">Direct Setup Link</div>
                           <button

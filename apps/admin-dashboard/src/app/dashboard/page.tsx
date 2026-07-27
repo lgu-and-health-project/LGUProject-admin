@@ -27,10 +27,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    
+
     fetchStats();
     
-    // Refresh stats every 30 seconds
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -60,7 +59,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-surface border border-text-secondary/10 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center space-x-4">
             <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
