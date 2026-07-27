@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminApiModule } from './modules/admin-api/admin-api.module';
+import { RbacModule } from './modules/rbac/rbac.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AdminApiModule } from './modules/admin-api/admin-api.module';
     }),
     AuthModule,
     StaffModule,
+    RbacModule,
     ScheduleModule.forRoot(),
     AdminApiModule,
   ],

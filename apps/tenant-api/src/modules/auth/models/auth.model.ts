@@ -19,6 +19,15 @@ export class ModulePermission {
 }
 
 @ObjectType()
+export class OrganizationModel {
+  @Field()
+  name!: string;
+
+  @Field()
+  level!: string;
+}
+
+@ObjectType()
 export class CurrentUser {
   @Field()
   userId!: string;
@@ -29,6 +38,9 @@ export class CurrentUser {
   @Field(() => String, { nullable: true })
   role!: string | null;
 
+  @Field(() => String, { nullable: true })
+  roleId!: string | null;
+
   @Field()
   orgCode!: string;
 
@@ -37,6 +49,9 @@ export class CurrentUser {
 
   @Field(() => [ModulePermission])
   permissions!: ModulePermission[];
+
+  @Field(() => OrganizationModel, { nullable: true })
+  org?: OrganizationModel;
 }
 
 @ObjectType()

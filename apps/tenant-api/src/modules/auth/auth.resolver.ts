@@ -2,6 +2,7 @@ import { UseGuards } from '@nestjs/common';
 import { Resolver, Mutation, Query, Args, Context } from '@nestjs/graphql';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { LoginInput } from './dto/login.input';
 import { OnboardInput } from './dto/onboard.input';
 import { GqlAuthGuard } from './guards/gql-auth.guard';
@@ -16,14 +17,15 @@ interface GqlContext {
 interface RequestUser {
   userId: string;
   email: string;
-  role: string;
+  role: string | null;
+  roleId: string | null;
   orgCode: string;
   departmentId: string | null;
 }
 
 @Resolver()
 export class AuthResolver {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private prisma: PrismaService) {}
 
   @Mutation(() => LoginResponse)
   async login(
@@ -44,7 +46,7 @@ export class AuthResolver {
       maxAge: 1000 * 60 * 60 * 4,
     });
 
-    return { user };
+    return { user: { ...user, org: user.org ?? undefined } };
   }
 
   @Mutation(() => LoginResponse)
@@ -67,18 +69,23 @@ export class AuthResolver {
       maxAge: 1000 * 60 * 60 * 4,
     });
 
-    return { user };
+    return { user: { ...user, org: user.org ?? undefined } };
   }
 
   @Query(() => MeResponse)
   @UseGuards(GqlAuthGuard)
-  me(@CurrentUser() user: RequestUser): MeResponse {
-    const permissions = this.authService.getPermissionsForRole(user.role);
-    return { 
+  async me(@CurrentUser() user: RequestUser): Promise<MeResponse> {
+    const permissions = await this.authService.getPermissionsForRole(user.roleId);
+    const orgData = await this.prisma.organization.findUnique({
+      where: { code: user.orgCode },
+      select: { name: true, level: true },
+    });
+    return {
       user: {
         ...user,
         permissions,
-      }
+        org: orgData ?? undefined,
+      },
     };
   }
 }

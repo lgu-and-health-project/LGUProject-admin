@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AddStaffInput } from './dto/add-staff.input';
 import * as bcrypt from 'bcrypt';
@@ -30,18 +30,18 @@ export class StaffManagementService {
       throw new ForbiddenException('Only sysadmin can add staff');
     }
 
-    const existingUser = await this.prisma.staffUser.findUnique({
-      where: { email: dto.email }
-    });
-
+    const existingUser = await this.prisma.staffUser.findUnique({ where: { email: dto.email } });
     if (existingUser) {
       throw new BadRequestException('A user with this email already exists');
     }
 
-    // In a real system, you would send an invite email.
-    // Here we will just create the user with a default password or no password if they use SSO.
-    // Let's set a default password of "Welcome123!" for now for testing purposes.
-    const defaultPassword = "Welcome123!";
+    const role = await this.prisma.role.findUnique({ where: { id: dto.roleId } });
+    if (!role || role.orgCode !== user.orgCode) {
+      throw new NotFoundException('Role not found for this organization');
+    }
+
+    // In a real system, send an invite email instead of a default password.
+    const defaultPassword = 'Welcome123!';
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
     return this.prisma.staffUser.create({
@@ -50,10 +50,11 @@ export class StaffManagementService {
         email: dto.email,
         name: dto.name,
         office: dto.office,
-        baseRole: dto.baseRole,
+        roleId: role.id,
+        baseRole: role.roleName, // kept in sync for display; roleId is the source of truth
         passwordHash,
-        status: 'active', // Can be 'invited' if we build an invite flow later
-      }
+        status: 'active',
+      },
     });
   }
 }

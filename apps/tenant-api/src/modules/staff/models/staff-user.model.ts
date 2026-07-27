@@ -23,6 +23,9 @@ export class StaffUserModel {
   @Field(() => String, { nullable: true })
   baseRole!: string | null;
 
+  @Field(() => String, { nullable: true })
+  roleId!: string | null;
+
   @Field()
   createdAt!: Date;
 }

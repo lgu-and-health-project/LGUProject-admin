@@ -12,5 +12,5 @@ export class AddStaffInput {
   office!: string;
 
   @Field()
-  baseRole!: string;
+  roleId!: string;
 }

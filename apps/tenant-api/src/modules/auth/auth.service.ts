@@ -5,13 +5,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
 import { ModulePermission } from './models/auth.model';
 
-const ALL_MODULES = [
-  'profile', 'staff', 'roles',
-  'financial', 'hr', 'health', 'disaster', 'registry', 'assessment', 
-  'welfare', 'agriculture', 'planning', 'general-services', 'peace-safety', 
-  'economic-dev', 'engineering'
-];
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,18 +13,83 @@ export class AuthService {
     private adminApiService: AdminApiService,
   ) {}
 
-  getPermissionsForRole(role: string | null): ModulePermission[] {
-    if (role === 'sysadmin') {
-      return ['profile', 'staff', 'roles'].map(module => ({
-        module,
-        create: true,
-        read: true,
-        update: true,
-        delete: true,
-      }));
+  /**
+   * Real permission resolution, replacing the old hardcoded
+   * `if (role === 'sysadmin') ... else []` switch. Reads RolePermission rows
+   * directly, so any role — not just sysadmin — gets working permissions,
+   * and adding a role is a data change, not a deploy.
+   */
+  async getPermissionsForRole(roleId: string | null): Promise<ModulePermission[]> {
+    if (!roleId) return [];
+
+    const rows = await this.prisma.rolePermission.findMany({ where: { roleId } });
+
+    // Collapse division-scoped rows into their parent module for the nav-level
+    // permission check (module access = true if the role has ANY grant on it).
+    // Fine-grained division scoping is enforced separately at the resolver/
+    // service layer using divisionId, not in this coarse module list.
+    const byModule = new Map<string, ModulePermission>();
+    for (const row of rows) {
+      const existing = byModule.get(row.module);
+      if (!existing) {
+        byModule.set(row.module, {
+          module: row.module,
+          create: row.canCreate,
+          read: row.canRead,
+          update: row.canUpdate,
+          delete: row.canDelete,
+        });
+      } else {
+        existing.create ||= row.canCreate;
+        existing.read ||= row.canRead;
+        existing.update ||= row.canUpdate;
+        existing.delete ||= row.canDelete;
+      }
     }
-    // Future: fetch from database for custom roles
-    return [];
+    return Array.from(byModule.values());
+  }
+
+  private async buildAuthPayload(user: {
+    id: string;
+    email: string;
+    orgCode: string;
+    departmentId: string | null;
+    roleId: string | null;
+    role: { roleName: string } | null;
+    org?: { name: string; level: string; } | null;
+  }) {
+    const permissions = await this.getPermissionsForRole(user.roleId);
+    let orgData = user.org;
+    if (!orgData) {
+      orgData = await this.prisma.organization.findUnique({
+        where: { code: user.orgCode },
+        select: { name: true, level: true },
+      });
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role?.roleName ?? null,
+      roleId: user.roleId,
+      orgCode: user.orgCode,
+      departmentId: user.departmentId,
+    };
+    const accessToken = await this.jwt.signAsync(payload);
+
+    return {
+      accessToken,
+      user: {
+        userId: user.id,
+        email: user.email,
+        role: user.role?.roleName ?? null,
+        roleId: user.roleId,
+        orgCode: user.orgCode,
+        departmentId: user.departmentId,
+        permissions,
+        org: orgData,
+      },
+    };
   }
 
   async login(
@@ -40,29 +98,30 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const user = await this.prisma.staffUser.findUnique({ where: { email } });
+    const user = await this.prisma.staffUser.findUnique({
+      where: { email },
+      include: { role: true, org: true },
+    });
 
-    if (!user || user.status !== 'active' || !user.passwordHash) {
+    // Strictly enforce that user exists, is active, has a valid password hash, and belongs to an active org.
+    if (!user || user.status !== 'active' || !user.passwordHash || user.passwordHash.length < 10) {
       await this.prisma.auditLog.create({
-        data: {
-          actorEmail: email,
-          action: 'login_failed',
-          ipAddress,
-          userAgent,
-        },
+        data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
       });
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid credentials or account pending setup');
+    }
+
+    if (user.org && user.org.status !== 'active') {
+      await this.prisma.auditLog.create({
+        data: { actorEmail: email, action: 'login_failed_org_inactive', ipAddress, userAgent },
+      });
+      throw new UnauthorizedException('Organization account is suspended or pending setup');
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       await this.prisma.auditLog.create({
-        data: {
-          actorEmail: email,
-          action: 'login_failed',
-          ipAddress,
-          userAgent,
-        },
+        data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
       });
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -78,26 +137,7 @@ export class AuthService {
       },
     });
 
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.baseRole,
-      orgCode: user.orgCode,
-      departmentId: user.departmentId,
-    };
-    const accessToken = await this.jwt.signAsync(payload);
-
-    return {
-      accessToken,
-      user: {
-        userId: user.id,
-        email: user.email,
-        role: user.baseRole,
-        orgCode: user.orgCode,
-        departmentId: user.departmentId,
-        permissions: this.getPermissionsForRole(user.baseRole),
-      },
-    };
+    return this.buildAuthPayload(user);
   }
 
   async onboard(
@@ -107,8 +147,7 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const adminResponse =
-      await this.adminApiService.verifyRegistrationKey(registrationKey);
+    const adminResponse = await this.adminApiService.verifyRegistrationKey(registrationKey);
 
     if (!adminResponse.valid) {
       if (adminResponse.reason === 'NOT_FOUND') {
@@ -120,15 +159,16 @@ export class AuthService {
       throw new UnauthorizedException('Failed to verify registration key');
     }
 
-    if (adminResponse.expectedEmail && email.toLowerCase() !== adminResponse.expectedEmail.toLowerCase()) {
+    if (
+      adminResponse.expectedEmail &&
+      email.toLowerCase() !== adminResponse.expectedEmail.toLowerCase()
+    ) {
       throw new UnauthorizedException('Email does not match the registered sysadmin email for this key');
     }
 
     const tenantInfo = adminResponse.tenant;
 
-    let org = await this.prisma.organization.findUnique({
-      where: { code: tenantInfo.psgcCode },
-    });
+    let org = await this.prisma.organization.findUnique({ where: { code: tenantInfo.psgcCode } });
     if (!org) {
       org = await this.prisma.organization.create({
         data: {
@@ -139,23 +179,41 @@ export class AuthService {
           status: 'active',
         },
       });
-    } else {
-      if (org.status !== 'active') {
-        throw new UnauthorizedException('Organization account is suspended');
-      }
+    } else if (org.status !== 'active') {
+      throw new UnauthorizedException('Organization account is suspended');
     }
 
     let dept = await this.prisma.department.findFirst({
-      where: { orgCode: org.code, category: 'mandatory' },
+      where: { orgCode: org.code, name: 'Management Information Systems Office' },
     });
-
     if (!dept) {
       dept = await this.prisma.department.create({
-        data: {
-          orgCode: org.code,
-          name: 'Main Office',
-          category: 'mandatory',
-        },
+        data: { orgCode: org.code, name: 'Management Information Systems Office', category: 'custom' },
+      });
+    }
+
+    // Every org needs its own sysadmin Role with real RolePermission rows —
+    // without this, onboarding outside the seed script would produce a
+    // sysadmin who logs in successfully but has zero permissions.
+    let sysadminRole = await this.prisma.role.findFirst({
+      where: { orgCode: org.code, roleName: 'sysadmin' },
+    });
+    if (!sysadminRole) {
+      sysadminRole = await this.prisma.role.create({
+        data: { orgCode: org.code, roleName: 'sysadmin', isSystemDefault: true },
+      });
+      
+      const permissions = [
+        { module: 'profile', canCreate: false, canRead: true, canUpdate: false, canDelete: false },
+        { module: 'staff', canCreate: true, canRead: true, canUpdate: true, canDelete: true },
+        { module: 'roles', canCreate: true, canRead: true, canUpdate: true, canDelete: true },
+      ];
+
+      await this.prisma.rolePermission.createMany({
+        data: permissions.map((p) => ({
+          roleId: sysadminRole!.id,
+          ...p,
+        })),
       });
     }
 
@@ -167,12 +225,14 @@ export class AuthService {
         email,
         passwordHash,
         baseRole: 'sysadmin',
+        roleId: sysadminRole.id,
         office: 'MISO',
+        positionTitle: 'System Administrator',
         departmentId: dept.id,
       },
+      include: { role: true },
     });
 
-    // Notify admin-api that setup is complete so status changes from pending_setup to active
     await this.adminApiService.completeSetup(registrationKey);
 
     await this.prisma.auditLog.create({
@@ -186,25 +246,6 @@ export class AuthService {
       },
     });
 
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.baseRole,
-      orgCode: user.orgCode,
-      departmentId: user.departmentId,
-    };
-    const accessToken = await this.jwt.signAsync(payload);
-
-    return {
-      accessToken,
-      user: {
-        userId: user.id,
-        email: user.email,
-        role: user.baseRole,
-        orgCode: user.orgCode,
-        departmentId: user.departmentId,
-        permissions: this.getPermissionsForRole(user.baseRole),
-      },
-    };
+    return this.buildAuthPayload(user);
   }
 }
