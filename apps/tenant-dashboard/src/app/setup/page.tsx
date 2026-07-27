@@ -4,11 +4,13 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "@/components/AppLogo";
 import { Eye, EyeOff } from "lucide-react";
+import { authService } from "@/services/auth";
+import { fetchGraphQL } from "@/services/apiClient";
 
 function SetupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [registrationKey, setRegistrationKey] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,40 +42,29 @@ function SetupForm() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:4001/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: `
-            mutation Onboard($input: OnboardInput!) {
-              onboard(input: $input) {
-                user {
-                  userId
-                  email
-                  role
-                  orgCode
-                  departmentId
-                }
-              }
+      const query = `
+        mutation Onboard($input: OnboardInput!) {
+          onboard(input: $input) {
+            user {
+              userId
+              email
+              role
+              orgCode
+              departmentId
             }
-          `,
-          variables: {
-            input: {
-              registrationKey,
-              email,
-              password,
-            },
-          },
-        }),
-      });
+          }
+        }
+      `;
+      const variables = {
+        input: {
+          registrationKey,
+          email,
+          password,
+        },
+      };
 
-      const result = await response.json();
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message);
-      }
+      await fetchGraphQL(query, variables);
+      await authService.login(email, password);
 
       router.push("/");
     } catch (err: any) {
@@ -96,13 +87,13 @@ function SetupForm() {
           Initialize Organization
         </p>
       </div>
-      
+
       {error && (
         <div style={{ color: "red", textAlign: "center", marginBottom: "16px", fontSize: "14px" }}>
           {error}
         </div>
       )}
-      
+
       <form className="login-form" onSubmit={handleSetup}>
         <div className="input-group">
           <label className="input-label" htmlFor="registrationKey">
@@ -123,7 +114,7 @@ function SetupForm() {
         </div>
         <div className="input-group">
           <label className="input-label" htmlFor="email">
-            SysAdmin Email
+            System Administration Email
           </label>
           <input
             id="email"

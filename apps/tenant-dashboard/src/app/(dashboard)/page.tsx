@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService, CurrentUser } from "@/services/auth";
 
-import { ADMIN_MODULES, LGU_MODULES } from "@/lib/modules";
+import { ADMIN_MODULES, LGU_MODULES } from "@/lib/config/modules";
+import { hasAccess } from "@/lib/permissions";
 
 export default function DashboardIndex() {
   const [loading, setLoading] = useState(true);
@@ -18,15 +19,13 @@ export default function DashboardIndex() {
       }
 
       // Find the first module they have access to
-      const hasAccess = (moduleId: string) => u.permissions.some(p => p.module === moduleId && p.read);
-      
-      const adminItem = ADMIN_MODULES.find(m => hasAccess(m.id));
+      const adminItem = ADMIN_MODULES.find(m => hasAccess(u, m.id));
       if (adminItem) {
         router.push(adminItem.path);
         return;
       }
 
-      const lguItem = LGU_MODULES.find(m => hasAccess(m.id));
+      const lguItem = LGU_MODULES.find(m => hasAccess(u, m.id));
       if (lguItem) {
         router.push(lguItem.path);
         return;

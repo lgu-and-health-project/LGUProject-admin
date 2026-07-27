@@ -3,27 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Users,
-  UserCog,
-  Building2,
-  Menu,
-  LogOut,
-  Landmark,
-  Briefcase,
-  HeartPulse,
-  ShieldAlert,
-  FileText,
-  Calculator,
-  HandHeart,
-  Sprout,
-  Map,
-  Box,
-  Shield,
-  TrendingUp,
-  HardHat
-} from "lucide-react";
+import { Menu, LogOut, Settings, Bell } from "lucide-react";
 import { authService, CurrentUser } from "@/services/auth";
+import { ADMIN_MODULES, LGU_MODULES, ALL_MODULES } from "@/lib/config/modules";
+import { getModuleIcon } from "@/lib/config/icons";
+import { getAccessibleModules } from "@/lib/permissions";
 
 export default function DashboardLayout({
   children,
@@ -54,39 +38,12 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
-  const hasAccess = (moduleId: string) => {
-    if (!user) return false;
-    return user.permissions.some(p => p.module === moduleId && p.read);
-  };
+  // Both filtered off the same lib/config/modules.ts registry that seeded
+  // Module rows on the backend come from — no more hand-typed duplicate list.
+  const adminItems = getAccessibleModules(user, "admin");
+  const lguModules = getAccessibleModules(user, "lgu");
 
-  const allAdminItems = [
-    { name: "Organization Profile", href: "/profile", icon: Building2 },
-    { name: "Staff Directory", href: "/staff", icon: Users },
-    { name: "Role Manager", href: "/roles", icon: UserCog },
-  ];
-
-  const allLguModules = [
-    { name: "Financial", href: "/financial", icon: Landmark },
-    { name: "Personnel/HR", href: "/hr", icon: Briefcase },
-    { name: "Health Records", href: "/health", icon: HeartPulse },
-    { name: "Disaster Response", href: "/disaster", icon: ShieldAlert },
-    { name: "Civil Registry", href: "/registry", icon: FileText },
-    { name: "Assessment", href: "/assessment", icon: Calculator },
-    { name: "Social Welfare", href: "/welfare", icon: HandHeart },
-    { name: "Agriculture", href: "/agriculture", icon: Sprout },
-    { name: "Planning & Dev", href: "/planning", icon: Map },
-    { name: "General Services", href: "/general-services", icon: Box },
-    { name: "Peace, Safety & Traffic", href: "/peace-safety", icon: Shield },
-    { name: "Economic Dev", href: "/economic-dev", icon: TrendingUp },
-    { name: "Engineering", href: "/engineering", icon: HardHat },
-  ];
-
-  const adminItems = allAdminItems.filter(item => hasAccess(item.href.replace("/", "")));
-  const lguModules = allLguModules.filter(item => hasAccess(item.href.replace("/", "")));
-
-  const allItems = [...allAdminItems, ...allLguModules];
-
-  const currentNav = allItems.find((item) => item.href === pathname) || { name: "Dashboard" };
+  const currentNav = ALL_MODULES.find((item) => item.path === pathname) || { name: "Dashboard" };
 
   if (loading) {
     return (
@@ -95,6 +52,61 @@ export default function DashboardLayout({
       </div>
     );
   }
+
+  const renderNavSection = (items: typeof ADMIN_MODULES) =>
+    items.map((item) => {
+      const Icon = getModuleIcon(item.id);
+      const isActive = pathname === item.path;
+
+      return (
+        <Link
+          key={item.id}
+          href={item.path}
+          className="nav-link-item group"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "0.75rem 1rem",
+            borderRadius: "8px",
+            textDecoration: "none",
+            position: "relative",
+            backgroundColor: isActive ? "rgba(59, 130, 246, 0.1)" : "transparent",
+            color: isActive ? "var(--accent-primary)" : "var(--text-secondary)",
+            transition: "all 0.2s ease",
+          }}
+          title={collapsed ? item.name : undefined}
+        >
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon size={20} style={{ color: isActive ? "var(--accent-primary)" : "inherit" }} />
+          </div>
+
+          <span style={{
+            marginLeft: "12px",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            transition: "opacity 300ms",
+            opacity: collapsed ? 0 : 1,
+            display: collapsed ? "none" : "block",
+          }}>
+            {item.name}
+          </span>
+
+          {isActive && (
+            <div style={{
+              position: "absolute",
+              left: "-1rem",
+              top: "50%",
+              transform: "translateY(-50%)",
+              height: "20px",
+              width: "4px",
+              backgroundColor: "var(--accent-primary)",
+              borderRadius: "0 4px 4px 0",
+            }} />
+          )}
+        </Link>
+      );
+    });
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
@@ -149,129 +161,64 @@ export default function DashboardLayout({
 
         {/* Sidebar Navigation */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 1rem", display: "flex", flexDirection: "column", gap: "0.5rem", overflowX: "hidden" }}>
-          {/* Admin Navigation */}
           {!collapsed && adminItems.length > 0 && (
             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "0.5rem" }}>
               Administration
             </div>
           )}
-          {adminItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
+          {renderNavSection(adminItems)}
 
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="nav-link-item group"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  position: "relative",
-                  backgroundColor: isActive ? "rgba(59, 130, 246, 0.1)" : "transparent",
-                  color: isActive ? "var(--accent-primary)" : "var(--text-secondary)",
-                  transition: "all 0.2s ease",
-                }}
-                title={collapsed ? item.name : undefined}
-              >
-                <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon size={20} style={{ color: isActive ? "var(--accent-primary)" : "inherit" }} />
-                </div>
-
-                <span style={{
-                  marginLeft: "12px",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  transition: "opacity 300ms",
-                  opacity: collapsed ? 0 : 1,
-                  display: collapsed ? "none" : "block",
-                }}>
-                  {item.name}
-                </span>
-
-                {isActive && (
-                  <div style={{
-                    position: "absolute",
-                    left: "-1rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    height: "20px",
-                    width: "4px",
-                    backgroundColor: "var(--accent-primary)",
-                    borderRadius: "0 4px 4px 0",
-                  }} />
-                )}
-              </Link>
-            );
-          })}
-
-          {/* LGU Modules Navigation */}
           {!collapsed && lguModules.length > 0 && (
             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "1rem" }}>
               LGU Modules
             </div>
           )}
-          {lguModules.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="nav-link-item group"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  position: "relative",
-                  backgroundColor: isActive ? "rgba(59, 130, 246, 0.1)" : "transparent",
-                  color: isActive ? "var(--accent-primary)" : "var(--text-secondary)",
-                  transition: "all 0.2s ease",
-                }}
-                title={collapsed ? item.name : undefined}
-              >
-                <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon size={20} style={{ color: isActive ? "var(--accent-primary)" : "inherit" }} />
-                </div>
-
-                <span style={{
-                  marginLeft: "12px",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  transition: "opacity 300ms",
-                  opacity: collapsed ? 0 : 1,
-                  display: collapsed ? "none" : "block",
-                }}>
-                  {item.name}
-                </span>
-
-                {isActive && (
-                  <div style={{
-                    position: "absolute",
-                    left: "-1rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    height: "20px",
-                    width: "4px",
-                    backgroundColor: "var(--accent-primary)",
-                    borderRadius: "0 4px 4px 0",
-                  }} />
-                )}
-              </Link>
-            );
-          })}
+          {renderNavSection(lguModules)}
         </div>
 
         {/* Sidebar Footer */}
-        <div style={{ padding: "1.5rem 1rem", borderTop: "1px solid var(--border-color)", overflowX: "hidden" }}>
+        <div style={{ padding: "1.5rem 1rem", borderTop: "1px solid var(--border-color)", overflowX: "hidden", display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <Link
+            href="/settings"
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              padding: "0.75rem 1rem",
+              borderRadius: "8px",
+              backgroundColor: "transparent",
+              color: "var(--text-secondary)",
+              border: "none",
+              textDecoration: "none",
+              transition: "all 0.2s ease",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+              e.currentTarget.style.color = "var(--text-primary)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--text-secondary)";
+            }}
+            title={collapsed ? "Settings" : undefined}
+          >
+            <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Settings size={20} />
+            </div>
+
+            <span style={{
+              marginLeft: "12px",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              transition: "opacity 300ms",
+              opacity: collapsed ? 0 : 1,
+              display: collapsed ? "none" : "block",
+            }}>
+              Settings
+            </span>
+          </Link>
+          
           <button
             onClick={handleLogout}
             style={{
@@ -361,6 +308,43 @@ export default function DashboardLayout({
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: "8px",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                transition: "all 0.2s ease",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+                e.currentTarget.style.color = "var(--text-primary)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--text-secondary)";
+              }}
+              title="Notifications"
+            >
+              <Bell size={20} />
+              <span style={{
+                position: "absolute",
+                top: "6px",
+                right: "8px",
+                width: "8px",
+                height: "8px",
+                backgroundColor: "#ef4444",
+                borderRadius: "50%",
+                border: "2px solid var(--bg-secondary)",
+              }}></span>
+            </button>
+
             <div style={{
               display: "flex",
               alignItems: "center",
@@ -385,7 +369,7 @@ export default function DashboardLayout({
                 {user?.email?.[0]?.toUpperCase() || "U"}
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.2, color: "var(--text-primary)" }}>{user?.role === 'sysadmin' ? 'Sysadmin' : 'Staff'}</span>
+                <span style={{ fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.2, color: "var(--text-primary)" }}>{user?.role ?? "Staff"}</span>
                 <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{user?.email}</span>
               </div>
             </div>

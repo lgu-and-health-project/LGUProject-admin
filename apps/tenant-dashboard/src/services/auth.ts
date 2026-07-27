@@ -12,9 +12,14 @@ export interface CurrentUser {
   userId: string;
   email: string;
   role: string | null;
+  roleId: string | null;
   orgCode: string;
   departmentId: string | null;
   permissions: ModulePermission[];
+  org?: {
+    name: string;
+    level: string;
+  };
 }
 
 export const authService = {
@@ -26,6 +31,7 @@ export const authService = {
             userId
             email
             role
+            roleId
             orgCode
             departmentId
             permissions {
@@ -34,6 +40,10 @@ export const authService = {
               read
               update
               delete
+            }
+            org {
+              name
+              level
             }
           }
         }
@@ -53,6 +63,7 @@ export const authService = {
               userId
               email
               role
+              roleId
               orgCode
               departmentId
               permissions {
@@ -61,6 +72,10 @@ export const authService = {
                 read
                 update
                 delete
+              }
+              org {
+                name
+                level
               }
             }
           }

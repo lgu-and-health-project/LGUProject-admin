@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { CurrentUser, ModulePermission } from "@/services/auth";
+import { ADMIN_MODULES } from "@/lib/config/modules";
 import { CheckCircle2, XCircle } from "lucide-react";
 
 interface RoleDashboardViewProps {
@@ -9,8 +10,10 @@ interface RoleDashboardViewProps {
 export default function RoleDashboardView({ user }: RoleDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<"admin" | "lgu">("admin");
 
-  // Separate permissions based on known module categories
-  const adminModuleIds = ["profile", "staff", "roles"];
+  // Sourced from lib/config/modules.ts — this used to be a third hand-typed
+  // copy of the admin module id list (layout.tsx and lib/modules.ts had the
+  // other two, now also consolidated).
+  const adminModuleIds = ADMIN_MODULES.map((m) => m.id);
   const adminPermissions = user.permissions.filter((p) => adminModuleIds.includes(p.module));
   const lguPermissions = user.permissions.filter((p) => !adminModuleIds.includes(p.module));
 

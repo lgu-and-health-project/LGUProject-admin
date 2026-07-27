@@ -7,15 +7,15 @@
   --bg-primary: #f4f6f8;
   --bg-secondary: #ffffff;
   --bg-tertiary: #e9ecef;
-  
+
   --text-primary: #111827;
   --text-secondary: #374151;
   --text-tertiary: #6b7280;
-  
+
   --accent-primary: #1d4ed8; /* Solid, readable LGU blue */
   --accent-hover: #1e40af;
   --accent-glow: transparent; /* No glow/glass effect */
-  
+
   --border-color: #d1d5db;
 }
 
@@ -24,15 +24,15 @@
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-tertiary: #334155;
-    
+
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-tertiary: #94a3b8;
-    
+
     --accent-primary: #38bdf8;
     --accent-hover: #7dd3fc;
     --accent-glow: rgba(56, 189, 248, 0.2);
-    
+
     --border-color: #334155;
     --glass-bg: #1e293b;
   }
@@ -397,6 +397,26 @@ body {
   padding: 2rem;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.card {
+
+}
+
+.form-group {
+  min-width: 0; /* lets long disabled values ellipsis instead of stretching the grid track */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* space between label and input */
+}
+
+.form-input {
+  width: 100%;
+}
+
+
 .card-title {
   font-size: 1.25rem;
   font-weight: 600;
@@ -554,4 +574,24 @@ body {
   margin-top: 2rem;
   color: var(--text-tertiary);
   font-size: 0.875rem;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.card {
+  max-width: 100%;
+  padding: 1.5rem;
+}
+
+.form-group {
+  min-width: 0; /* lets long disabled values ellipsis instead of stretching the grid track */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* space between label and input */
+}
+
+.form-input {
+  width: 100%;
 }
