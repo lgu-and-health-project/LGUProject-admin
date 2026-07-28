@@ -2,10 +2,8 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { GqlAuthGuard } from './guards/gql-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminApiModule } from '../admin-api/admin-api.module';
 
@@ -22,7 +20,7 @@ import { AdminApiModule } from '../admin-api/admin-api.module';
     }),
     AdminApiModule,
   ],
-  providers: [AuthResolver, AuthService, JwtStrategy, GqlAuthGuard, PrismaService],
-  exports: [GqlAuthGuard],
+  providers: [AuthService, JwtStrategy, PrismaService],
+  exports: [],
 })
 export class AuthModule {}
