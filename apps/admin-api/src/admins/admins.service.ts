@@ -1,11 +1,34 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { AdminStatus, AuditAction, AuditTargetType } from '@prisma/client';
-import * as crypto from 'crypto';
+import {
+  AdminStatus,
+  AdminRole,
+  AuditAction,
+  AuditTargetType,
+} from '@prisma/client';
+import type { JwtPayload } from '../auth/auth.types';
+import { InviteAdminDto } from './dto/invite-admin.dto';
+import { AcceptInviteDto } from './dto/accept-invite.dto';
+import { RejectInviteDto } from './dto/reject-invite.dto';
+import { UpdateAdminDto } from './dto/update-admin.dto';
+
+const INVITE_TTL_DAYS = 7;
+const RESEND_COOLDOWN_MS = 60_000;
+const BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class AdminsService {
+  private readonly logger = new Logger(AdminsService.name);
   private inviteCooldowns = new Map<string, number>();
 
   constructor(
@@ -14,110 +37,116 @@ export class AdminsService {
   ) {}
 
   async findAll() {
-    const admins = await this.prisma.superAdmin.findMany({
-      where: { status: { not: 'revoked' } },
+    const admins = await this.prisma.superAdmins.findMany({
+      where: { status: { not: AdminStatus.REVOKED } },
       select: {
-        id: true,
+        superadminId: true,
         email: true,
         fullName: true,
         role: true,
         status: true,
         appointedById: true,
         createdAt: true,
-        appointedBy: {
-          select: {
-            fullName: true,
-          },
-        },
-        inviteTokenHash: true,
+        appointedBy: { select: { fullName: true } },
       },
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: { createdAt: 'asc' },
     });
 
+    // inviteTokenHash is intentionally never selected/returned - it's a
+    // secret, not display data. The invite link is only ever shown once,
+    // at creation/resend time.
     return admins.map((admin) => ({
       ...admin,
-      appointedByName: admin.appointedBy?.fullName || null,
-      inviteToken: admin.inviteTokenHash || null,
+      appointedByName: admin.appointedBy?.fullName ?? null,
     }));
   }
 
-  async inviteAdmin(data: { email: string; fullName: string; role?: 'ADMIN' | 'ROOT_SUPERADMIN' }, inviter: any) {
-    const inviteToken = crypto.randomBytes(32).toString('hex');
-    const inviteTokenHash = inviteToken; // Storing unhashed temporarily so UI can display it
-
-
-    const inviteExpiresAt = new Date();
-    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + 7);
-
-    const status = AdminStatus.invited;
-    const placeholderHash = await require('bcryptjs').hash(crypto.randomBytes(32).toString('hex'), 10);
-
-    const existing = await this.prisma.superAdmin.findUnique({
-      where: { email: data.email }
+  async inviteAdmin(data: InviteAdminDto, inviter: JwtPayload) {
+    const existing = await this.prisma.superAdmins.findUnique({
+      where: { email: data.email },
     });
 
     if (existing) {
-      if (existing.status === 'revoked') {
-        // Retroactively tombstone the old revoked account's email so we can create a fresh one
-        await this.prisma.superAdmin.update({
-          where: { id: existing.id },
+      if (existing.status === AdminStatus.REVOKED) {
+        // Tombstone the old revoked account's email so it can be reused.
+        await this.prisma.superAdmins.update({
+          where: { superadminId: existing.superadminId },
           data: { email: `deleted_${Date.now()}_${existing.email}` },
         });
       } else {
-        throw new ConflictException('An administrator with this email already exists.');
+        throw new ConflictException(
+          'An administrator with this email already exists.',
+        );
       }
     }
 
-    const newAdmin = await this.prisma.superAdmin.create({
+    const inviteTokenPlain = crypto.randomBytes(32).toString('hex');
+    const inviteTokenHash = crypto
+      .createHash('sha256')
+      .update(inviteTokenPlain)
+      .digest('hex');
+
+    const inviteExpiresAt = new Date();
+    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + INVITE_TTL_DAYS);
+
+    // Placeholder hash - never usable to log in, overwritten on accept-invite.
+    const placeholderHash = await bcrypt.hash(
+      crypto.randomBytes(32).toString('hex'),
+      BCRYPT_ROUNDS,
+    );
+
+    const newAdmin = await this.prisma.superAdmins.create({
       data: {
         email: data.email,
         fullName: data.fullName,
-        role: data.role || 'ADMIN',
-        status,
+        role: data.role ?? AdminRole.ADMIN,
+        status: AdminStatus.INVITED,
         passwordHash: placeholderHash,
         inviteTokenHash,
         inviteExpiresAt,
-        appointedById: inviter?.sub,
+        appointedById: inviter.sub,
       },
-      include: {
-        appointedBy: { select: { fullName: true } },
+      include: { appointedBy: { select: { fullName: true } } },
+    });
+
+    await this.auditLogsService.logAction({
+      actorId: inviter.sub,
+      action: AuditAction.invite_admin,
+      targetType: AuditTargetType.superadmin,
+      targetId: newAdmin.superadminId,
+      metadata: {
+        email: data.email,
+        full_name: data.fullName,
+        role: data.role ?? AdminRole.ADMIN,
       },
     });
 
-    if (inviter && inviter.sub) {
-      await this.auditLogsService.logAction(
-        inviter.sub,
-        AuditAction.invite_admin,
-        AuditTargetType.superadmin,
-        newAdmin.id,
-        { email: data.email, full_name: data.fullName, role: data.role || 'ADMIN' }
-      );
-    }
-
-    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${inviteToken}`;
-    console.log(
-      `[No Email Service yet, manually copy and paste invite token for now]: ${inviteLink}`,
-    );
+    const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
+    // TODO: replace with nodemailer send once the email service is wired up.
+    this.logger.log(`[No email service yet] Invite link: ${inviteLink}`);
 
     return {
-      ...newAdmin,
-      appointedByName: newAdmin.appointedBy?.fullName || null,
-      inviteToken,
+      superadminId: newAdmin.superadminId,
+      email: newAdmin.email,
+      fullName: newAdmin.fullName,
+      role: newAdmin.role,
+      status: newAdmin.status,
+      appointedByName: newAdmin.appointedBy?.fullName ?? null,
+      // Plaintext token returned ONLY here, at creation time, so the caller
+      // can relay/display it once. It is never retrievable again afterward.
+      inviteToken: inviteTokenPlain,
     };
   }
 
-  async acceptInvite(data: { token: string; password: string }) {
-    console.log('[DEBUG acceptInvite] Received token:', data.token);
-    const inviteTokenHash = data.token.trim(); // No hashing
-    console.log('[DEBUG acceptInvite] Searching for token:', inviteTokenHash);
-    
-    const admin = await this.prisma.superAdmin.findFirst({
+  async acceptInvite(data: AcceptInviteDto) {
+    const inviteTokenHash = crypto
+      .createHash('sha256')
+      .update(data.token.trim())
+      .digest('hex');
+
+    const admin = await this.prisma.superAdmins.findFirst({
       where: { inviteTokenHash },
     });
-    
-    console.log('[DEBUG acceptInvite] Found admin:', admin ? admin.id : 'null');
 
     if (!admin) {
       throw new BadRequestException('Invalid or expired invite token');
@@ -127,33 +156,36 @@ export class AdminsService {
       throw new BadRequestException('Invite token has expired');
     }
 
-    const bcrypt = require('bcryptjs');
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
 
-    const result = await this.prisma.superAdmin.update({
-      where: { id: admin.id },
+    const result = await this.prisma.superAdmins.update({
+      where: { superadminId: admin.superadminId },
       data: {
         passwordHash,
-        status: AdminStatus.active,
+        status: AdminStatus.ACTIVE,
         inviteTokenHash: null,
         inviteExpiresAt: null,
       },
     });
 
-    await this.auditLogsService.logAction(
-      admin.id,
-      AuditAction.accept_invite,
-      AuditTargetType.superadmin,
-      admin.id
-    );
+    await this.auditLogsService.logAction({
+      actorId: admin.superadminId,
+      action: AuditAction.accept_invite,
+      targetType: AuditTargetType.superadmin,
+      targetId: admin.superadminId,
+    });
 
-    return result;
+    const { passwordHash: _pw, inviteTokenHash: _hash, ...safe } = result;
+    return safe;
   }
 
-  async rejectInvite(data: { token: string }) {
-    const inviteTokenHash = data.token.trim(); // No hashing
-    
-    const admin = await this.prisma.superAdmin.findFirst({
+  async rejectInvite(data: RejectInviteDto) {
+    const inviteTokenHash = crypto
+      .createHash('sha256')
+      .update(data.token.trim())
+      .digest('hex');
+
+    const admin = await this.prisma.superAdmins.findFirst({
       where: { inviteTokenHash },
     });
 
@@ -161,106 +193,97 @@ export class AdminsService {
       throw new BadRequestException('Invalid or expired invite token');
     }
 
-    const result = await this.prisma.superAdmin.update({
-      where: { id: admin.id },
+    const result = await this.prisma.superAdmins.update({
+      where: { superadminId: admin.superadminId },
       data: {
-        status: AdminStatus.revoked,
+        status: AdminStatus.REVOKED,
         revokedAt: new Date(),
         inviteTokenHash: null,
         inviteExpiresAt: null,
       },
     });
 
-    // Logging action could be useful, but since admin rejected, we just record under them
-    await this.auditLogsService.logAction(
-      admin.id,
-      AuditAction.revoke_admin, // Closest matching action
-      AuditTargetType.superadmin,
-      admin.id,
-      { note: 'Admin rejected invitation' }
-    );
+    await this.auditLogsService.logAction({
+      actorId: admin.superadminId,
+      action: AuditAction.revoke_admin,
+      targetType: AuditTargetType.superadmin,
+      targetId: admin.superadminId,
+      metadata: { note: 'Admin rejected invitation' },
+    });
 
-    return result;
+    const { passwordHash: _pw, ...safe } = result;
+    return safe;
   }
 
-  // The approveAdmin and rejectPendingAdmin flow from previous schema is obsolete 
-  // since new schema only has invited/active/revoked. We'll leave them here but throw Error
-  async approveAdmin(id: string, approver: any) {
-    throw new BadRequestException('Deprecated workflow. Admins are directly invited.');
-  }
-  async rejectPendingAdmin(id: string, approver: any) {
-    throw new BadRequestException('Deprecated workflow. Admins are directly invited.');
-  }
-
-  async deleteAdmin(id: string, user: any) {
-    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+  async deleteAdmin(id: string, actor: JwtPayload) {
+    const admin = await this.prisma.superAdmins.findUnique({
+      where: { superadminId: id },
+    });
     if (!admin) throw new NotFoundException('Administrator not found');
 
-    if (admin.role === 'ROOT_SUPERADMIN') {
+    if (admin.role === AdminRole.ROOT_SUPERADMIN) {
       throw new BadRequestException('Cannot delete the root superadmin');
     }
 
-    // Soft delete with tombstone email to free it up for fresh profiles
-    const result = await this.prisma.superAdmin.update({
-      where: { id },
+    const result = await this.prisma.superAdmins.update({
+      where: { superadminId: id },
       data: {
         email: `deleted_${Date.now()}_${admin.email}`,
-        status: AdminStatus.revoked,
+        status: AdminStatus.REVOKED,
         revokedAt: new Date(),
-        revokedById: user?.sub,
+        revokedById: actor.sub,
       },
     });
 
-    if (user && user.sub) {
-      await this.auditLogsService.logAction(
-        user.sub,
-        AuditAction.delete_admin,
-        AuditTargetType.superadmin,
-        admin.id,
-        { email: admin.email, full_name: admin.fullName }
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.delete_admin,
+      targetType: AuditTargetType.superadmin,
+      targetId: admin.superadminId,
+      metadata: { email: admin.email, full_name: admin.fullName },
+    });
+
+    const { passwordHash: _pw, ...safe } = result;
+    return safe;
+  }
+
+  async updateAdmin(id: string, data: UpdateAdminDto, actor: JwtPayload) {
+    if (actor.sub !== id && actor.role !== AdminRole.ROOT_SUPERADMIN) {
+      throw new ForbiddenException(
+        'You do not have permission to edit this profile',
       );
     }
 
-    return result;
-  }
-
-  async updateAdmin(
-    id: string,
-    data: { fullName?: string; password?: string },
-    user: any,
-  ) {
-    if (user.sub !== id && user.role !== 'ROOT_SUPERADMIN') {
-      throw new ForbiddenException('You do not have permission to edit this profile');
-    }
-
-    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+    const admin = await this.prisma.superAdmins.findUnique({
+      where: { superadminId: id },
+    });
     if (!admin) throw new NotFoundException('Administrator not found');
 
-    const updateData: any = {};
+    const updateData: { fullName?: string; passwordHash?: string } = {};
     if (data.fullName) updateData.fullName = data.fullName;
-
     if (data.password) {
-      const bcrypt = require('bcryptjs');
-      updateData.passwordHash = await bcrypt.hash(data.password, 10);
+      updateData.passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
     }
 
-    const result = await this.prisma.superAdmin.update({
-      where: { id },
+    const result = await this.prisma.superAdmins.update({
+      where: { superadminId: id },
       data: updateData,
     });
 
     return {
-      id: result.id,
+      superadminId: result.superadminId,
       fullName: result.fullName,
       email: result.email,
     };
   }
 
-  async resendInvite(id: string, user: any) {
-    const admin = await this.prisma.superAdmin.findUnique({ where: { id } });
+  async resendInvite(id: string, actor: JwtPayload) {
+    const admin = await this.prisma.superAdmins.findUnique({
+      where: { superadminId: id },
+    });
     if (!admin) throw new NotFoundException('Administrator not found');
 
-    if (admin.status !== AdminStatus.invited) {
+    if (admin.status !== AdminStatus.INVITED) {
       throw new BadRequestException(
         'Can only resend invitations to administrators with invited status',
       );
@@ -268,41 +291,45 @@ export class AdminsService {
 
     const now = Date.now();
     const lastSent = this.inviteCooldowns.get(id);
-    if (lastSent && now - lastSent < 60000) {
-      const remainingSeconds = Math.ceil((60000 - (now - lastSent)) / 1000);
+    if (lastSent && now - lastSent < RESEND_COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil(
+        (RESEND_COOLDOWN_MS - (now - lastSent)) / 1000,
+      );
       throw new BadRequestException(
         `Please wait ${remainingSeconds} seconds before resending.`,
       );
     }
     this.inviteCooldowns.set(id, now);
 
-    const inviteToken = crypto.randomBytes(32).toString('hex');
-    const inviteTokenHash = inviteToken; // Storing unhashed
+    const inviteTokenPlain = crypto.randomBytes(32).toString('hex');
+    const inviteTokenHash = crypto
+      .createHash('sha256')
+      .update(inviteTokenPlain)
+      .digest('hex');
 
     const inviteExpiresAt = new Date();
-    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + 7);
+    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + INVITE_TTL_DAYS);
 
-    await this.prisma.superAdmin.update({
-      where: { id },
+    await this.prisma.superAdmins.update({
+      where: { superadminId: id },
       data: { inviteTokenHash, inviteExpiresAt },
     });
 
-    if (user && user.sub) {
-      await this.auditLogsService.logAction(
-        user.sub,
-        AuditAction.invite_admin,
-        AuditTargetType.superadmin,
-        admin.id,
-        { email: admin.email, role: admin.role, note: 'Resent invitation' }
-      );
-    }
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.invite_admin,
+      targetType: AuditTargetType.superadmin,
+      targetId: admin.superadminId,
+      metadata: {
+        email: admin.email,
+        role: admin.role,
+        note: 'Resent invitation',
+      },
+    });
 
-    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite?token=${inviteToken}`;
-    console.log(
-      `[No Email Service yet, manually copy and paste invite token for now]: ${inviteLink}`,
-    );
+    const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
+    this.logger.log(`[No email service yet] Invite link: ${inviteLink}`);
 
-    return { success: true, message: 'Invitation resent successfully', inviteToken };
+    return { success: true, message: 'Invitation resent successfully' };
   }
 }
-

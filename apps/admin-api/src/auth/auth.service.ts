@@ -1,8 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
+import { AdminStatus, SuperAdmins } from '@prisma/client';
+import type { JwtPayload } from './auth.types';
+
+type SafeAdmin = Omit<SuperAdmins, 'passwordHash'>;
 
 @Injectable()
 export class AuthService {
@@ -11,13 +15,17 @@ export class AuthService {
     private prisma: PrismaService,
   ) {}
 
-  async validateAdmin(email: string, pass: string): Promise<any> {
-    const admin = await this.prisma.superAdmin.findUnique({
+  async validateAdmin(email: string, pass: string): Promise<SafeAdmin> {
+    const admin = await this.prisma.superAdmins.findUnique({
       where: { email },
     });
 
     if (!admin) {
       throw new UnauthorizedException("Account doesn't exist");
+    }
+
+    if (admin.status === AdminStatus.REVOKED) {
+      throw new UnauthorizedException('Account has been restricted');
     }
 
     if (!admin.passwordHash) {
@@ -28,37 +36,50 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Incorrect password');
     }
-    const { passwordHash, ...result } = admin;
+
+    const { passwordHash: _pw, ...result } = admin;
     return result;
   }
 
-  async login(user: any, familyId?: string) {
-    const payload = { email: user.email, sub: user.id, role: user.role };
+  async login(user: SafeAdmin, familyId?: string) {
+    const payload: JwtPayload = {
+      email: user.email,
+      sub: user.superadminId,
+      role: user.role,
+    };
     const access_token = await this.jwtService.signAsync(payload);
-    
-    // Generate stateful refresh token
+
+    // Stateful refresh token - only the hash is ever persisted.
     const refreshTokenPlain = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshTokenPlain)
+      .digest('hex');
     const newFamilyId = familyId || crypto.randomUUID();
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Cleanup expired tokens for this user to prevent database bloat
-    await this.prisma.refreshToken.deleteMany({
+    // Cleanup expired tokens for this admin to prevent table bloat.
+    await this.prisma.refreshTokens.deleteMany({
       where: {
-        adminId: user.id,
+        adminId: user.superadminId,
         expiresAt: { lt: new Date() },
       },
     });
 
-    await this.prisma.refreshToken.create({
+    await this.prisma.refreshTokens.create({
       data: {
         tokenHash,
         familyId: newFamilyId,
         expiresAt,
-        adminId: user.id,
+        adminId: user.superadminId,
       },
+    });
+
+    await this.prisma.superAdmins.update({
+      where: { superadminId: user.superadminId },
+      data: { lastLoginAt: new Date() },
     });
 
     return {
@@ -69,11 +90,14 @@ export class AuthService {
   }
 
   async refresh(refreshTokenPlain: string) {
-    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshTokenPlain)
+      .digest('hex');
 
-    const tokenRecord = await this.prisma.refreshToken.findUnique({
+    const tokenRecord = await this.prisma.refreshTokens.findUnique({
       where: { tokenHash },
-      include: { admin: true }
+      include: { admin: true },
     });
 
     if (!tokenRecord) {
@@ -85,43 +109,45 @@ export class AuthService {
     }
 
     if (tokenRecord.isRevoked) {
-      // THE TRAP: Token reuse detected! Revoke the entire family
-      await this.prisma.refreshToken.updateMany({
+      // Reuse of an already-rotated token means the token was stolen -
+      // revoke the entire family so every session tied to it is killed.
+      await this.prisma.refreshTokens.updateMany({
         where: { familyId: tokenRecord.familyId },
-        data: { isRevoked: true },
+        data: { isRevoked: true, revokedAt: new Date() },
       });
-      throw new UnauthorizedException('Token reuse detected. All sessions revoked.');
+      throw new UnauthorizedException(
+        'Token reuse detected. All sessions revoked.',
+      );
     }
 
-    // Check if user is still valid
     const admin = tokenRecord.admin;
-    if (!admin || admin.status === 'revoked') {
+    if (!admin || admin.status === AdminStatus.REVOKED) {
       throw new UnauthorizedException('Account has been restricted');
     }
 
-    // Mark current token as revoked
-    await this.prisma.refreshToken.update({
-      where: { id: tokenRecord.id },
-      data: { isRevoked: true },
+    await this.prisma.refreshTokens.update({
+      where: { refreshTokenId: tokenRecord.refreshTokenId },
+      data: { isRevoked: true, revokedAt: new Date() },
     });
 
-    const { passwordHash, ...user } = admin;
-    // Issue a new token pair in the same family
+    const { passwordHash: _pw, ...user } = admin;
     return this.login(user, tokenRecord.familyId);
   }
 
   async logout(refreshTokenPlain: string) {
     if (!refreshTokenPlain) return;
-    const tokenHash = crypto.createHash('sha256').update(refreshTokenPlain).digest('hex');
-    
-    // Attempt to revoke the token, ignore if not found
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshTokenPlain)
+      .digest('hex');
+
     try {
-      await this.prisma.refreshToken.update({
+      await this.prisma.refreshTokens.update({
         where: { tokenHash },
-        data: { isRevoked: true },
+        data: { isRevoked: true, revokedAt: new Date() },
       });
-    } catch (e) {
-      // Ignore if not found
+    } catch {
+      // Token already gone/invalid - logout should still succeed silently.
     }
   }
 }

@@ -1,7 +1,21 @@
-import { Injectable, ConflictException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { LguLevel, TenantStatus, AuditAction, AuditTargetType } from '@prisma/client';
+import { PsgcService } from '../psgc/psgc.service';
+import {
+  TenantStatus,
+  LicenseStatus,
+  AuditAction,
+  AuditTargetType,
+} from '@prisma/client';
+import type { JwtPayload } from '../auth/auth.types';
+import { CreateTenantDto } from './dto/create-tenant.dto';
 
 @Injectable()
 export class TenantsService {
@@ -10,201 +24,217 @@ export class TenantsService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private psgcService: PsgcService,
   ) {}
 
   async findAll() {
-    const tenants = await this.prisma.lguTenant.findMany({
-      where: { status: { not: 'deleted' } },
+    const tenants = await this.prisma.lguTenants.findMany({
+      where: { status: { not: TenantStatus.deleted } },
       orderBy: { createdAt: 'desc' },
-      include: { licenses: true }
+      include: { licenses: true, psgcLocation: true },
     });
-    
-    return tenants.map(t => ({
+
+    return tenants.map((t) => ({
       ...t,
       registrationKey: t.licenses?.[0]?.registrationKey,
     }));
   }
 
-  async createTenant(
-    data: { psgcCode: string; name: string; level: LguLevel; sysadminEmail: string },
-    creator: any,
-  ) {
-    // Check if code exists and is not deleted
-    const existing = await this.prisma.lguTenant.findFirst({
-      where: { psgcCode: data.psgcCode, status: { not: 'deleted' } },
-    });
+  async createTenant(data: CreateTenantDto, creator: JwtPayload) {
+    // Resolves (or fetches + caches) the PSGC location. This is also what
+    // validates the code is real - an unrecognized code throws here.
+    const psgcLocation = await this.psgcService.resolveByCode(data.psgcCode);
 
+    const existing = await this.prisma.lguTenants.findFirst({
+      where: {
+        psgcLocationId: psgcLocation.psgcLocationId,
+        status: { not: TenantStatus.deleted },
+      },
+    });
     if (existing) {
       throw new ConflictException(
-        `Tenant organization with PSGC code '${data.psgcCode}' already exists.`
+        `A tenant for '${psgcLocation.areaName}' (${data.psgcCode}) already exists.`,
       );
     }
 
-    // Check if sysadmin email is already used by another tenant
-    const existingSysadmin = await this.prisma.lguTenant.findFirst({
-      where: { sysadminEmail: data.sysadminEmail, status: { not: 'deleted' } },
+    const existingSysadmin = await this.prisma.lguTenants.findFirst({
+      where: {
+        sysadminEmail: data.sysadminEmail,
+        status: { not: TenantStatus.deleted },
+      },
     });
-
     if (existingSysadmin) {
       throw new ConflictException(
-        `The email '${data.sysadminEmail}' is already registered as a SysAdmin for another organization.`
+        `The email '${data.sysadminEmail}' is already registered as a SysAdmin for another organization.`,
       );
     }
 
-    const crypto = require('crypto');
     const registrationKey = crypto.randomUUID();
 
-    const tenant = await this.prisma.lguTenant.create({
+    const tenant = await this.prisma.lguTenants.create({
       data: {
-        psgcCode: data.psgcCode,
-        name: data.name,
-        level: data.level,
-        status: 'pending_setup',
+        psgcLocationId: psgcLocation.psgcLocationId,
+        status: TenantStatus.pending_setup,
         sysadminEmail: data.sysadminEmail,
         licenses: {
           create: {
             registrationKey,
             issuedAt: new Date(),
-            status: 'active'
-          }
-        }
+            status: LicenseStatus.active,
+          },
+        },
+      },
+      include: { psgcLocation: true },
+    });
+
+    await this.auditLogsService.logAction({
+      actorId: creator.sub,
+      action: AuditAction.register_tenant,
+      targetType: AuditTargetType.tenant,
+      targetId: tenant.tenantId,
+      metadata: {
+        tenant_name: psgcLocation.areaName,
+        psgc_code: data.psgcCode,
+        sysadmin_email: data.sysadminEmail,
       },
     });
 
-    if (creator && creator.sub) {
-      await this.auditLogsService.logAction(
-        creator.sub,
-        AuditAction.register_tenant,
-        AuditTargetType.tenant,
-        tenant.id,
-        { tenant_name: data.name, psgc_code: data.psgcCode, sysadmin_email: data.sysadminEmail }
-      );
-    }
-
-    const setupLink = `${process.env.TENANT_DASHBOARD_URL || 'http://localhost:3001'}/setup?key=${registrationKey}`;
+    const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
+    // TODO: replace with nodemailer send once the email service is wired up.
     this.logger.log(
-      `[No Email Service yet, manually copy and paste setup link for sysadmin (${data.sysadminEmail})]: ${setupLink}`,
+      `[No email service yet] Setup link for sysadmin (${data.sysadminEmail}): ${setupLink}`,
     );
 
-    return {
-      ...tenant,
-      registrationKey,
-    };
+    return { ...tenant, registrationKey };
   }
 
-  async suspendTenant(id: string, actor: any) {
-    const tenant = await this.prisma.lguTenant.findUnique({ where: { id } });
-    if (!tenant || tenant.status === 'deleted') throw new NotFoundException('Tenant not found');
+  async suspendTenant(id: string, actor: JwtPayload) {
+    const tenant = await this.getActiveTenantOrThrow(id);
 
-    const result = await this.prisma.lguTenant.update({
-      where: { id },
-      data: { status: 'suspended' },
+    const result = await this.prisma.lguTenants.update({
+      where: { tenantId: id },
+      data: { status: TenantStatus.suspended },
+      include: { psgcLocation: true },
     });
 
-    if (actor && actor.sub) {
-      await this.auditLogsService.logAction(
-        actor.sub,
-        AuditAction.suspend_tenant,
-        AuditTargetType.tenant,
-        tenant.id,
-        { tenant_name: tenant.name, psgc_code: tenant.psgcCode }
-      );
-    }
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.suspend_tenant,
+      targetType: AuditTargetType.tenant,
+      targetId: tenant.tenantId,
+      metadata: { tenant_name: tenant.psgcLocation.areaName },
+    });
 
     return result;
   }
 
-  async activateTenant(id: string, actor: any) {
-    const tenant = await this.prisma.lguTenant.findUnique({ where: { id } });
-    if (!tenant || tenant.status === 'deleted') throw new NotFoundException('Tenant not found');
+  async activateTenant(id: string, actor: JwtPayload) {
+    const tenant = await this.getActiveTenantOrThrow(id);
 
-    const result = await this.prisma.lguTenant.update({
-      where: { id },
-      data: { status: 'active' },
+    const result = await this.prisma.lguTenants.update({
+      where: { tenantId: id },
+      data: { status: TenantStatus.active },
+      include: { psgcLocation: true },
     });
 
-    if (actor && actor.sub) {
-      await this.auditLogsService.logAction(
-        actor.sub,
-        AuditAction.activate_tenant,
-        AuditTargetType.tenant,
-        tenant.id,
-        { tenant_name: tenant.name, psgc_code: tenant.psgcCode }
-      );
-    }
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.activate_tenant,
+      targetType: AuditTargetType.tenant,
+      targetId: tenant.tenantId,
+      metadata: { tenant_name: tenant.psgcLocation.areaName },
+    });
 
     return result;
   }
 
-  async deleteTenant(id: string, actor: any) {
-    const tenant = await this.prisma.lguTenant.findUnique({ where: { id } });
-    if (!tenant || tenant.status === 'deleted') throw new NotFoundException('Tenant not found');
+  async deleteTenant(id: string, actor: JwtPayload) {
+    const tenant = await this.getActiveTenantOrThrow(id);
 
-    const result = await this.prisma.lguTenant.update({
-      where: { id },
-      data: { status: 'deleted', deletedAt: new Date() },
+    const result = await this.prisma.lguTenants.update({
+      where: { tenantId: id },
+      data: { status: TenantStatus.deleted, deletedAt: new Date() },
     });
 
-    if (actor && actor.sub) {
-      await this.auditLogsService.logAction(
-        actor.sub,
-        AuditAction.delete_tenant,
-        AuditTargetType.tenant,
-        tenant.id,
-        { tenant_name: tenant.name, psgc_code: tenant.psgcCode }
-      );
-    }
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.delete_tenant,
+      targetType: AuditTargetType.tenant,
+      targetId: tenant.tenantId,
+      metadata: { tenant_name: tenant.psgcLocation.areaName },
+    });
 
     return result;
   }
 
+  private async getActiveTenantOrThrow(id: string) {
+    const tenant = await this.prisma.lguTenants.findUnique({
+      where: { tenantId: id },
+      include: { psgcLocation: true },
+    });
+    if (!tenant || tenant.status === TenantStatus.deleted) {
+      throw new NotFoundException('Tenant not found');
+    }
+    return tenant;
+  }
+
+  /**
+   * Called by the tenant/staff server (cross-service, internal auth only -
+   * see InternalTenantsController) to check whether a registration key is
+   * still valid before letting first-time setup proceed.
+   */
   async verifyRegistrationKey(registrationKey: string) {
-    const license = await this.prisma.license.findUnique({
+    const license = await this.prisma.licenses.findUnique({
       where: { registrationKey },
       include: {
-        tenant: {
-          select: {
-            id: true,
-            psgcCode: true,
-            name: true,
-            level: true,
-            status: true,
-            sysadminEmail: true,
-          }
-        }
+        tenant: { include: { psgcLocation: true } },
       },
     });
 
-    if (!license || license.status !== 'active') {
-      return { valid: false, reason: 'NOT_FOUND_OR_REVOKED' };
+    if (!license || license.status !== LicenseStatus.active) {
+      return { valid: false as const, reason: 'NOT_FOUND' as const };
+    }
+
+    if (license.expiresAt && license.expiresAt < new Date()) {
+      return { valid: false as const, reason: 'NOT_FOUND' as const };
     }
 
     const tenant = license.tenant;
 
-    if (tenant.status !== 'active' && tenant.status !== 'pending_setup') {
-      return { valid: false, reason: 'SUSPENDED', tenant };
+    if (
+      tenant.status !== TenantStatus.active &&
+      tenant.status !== TenantStatus.pending_setup
+    ) {
+      return { valid: false as const, reason: 'SUSPENDED' as const, tenant };
     }
 
     return {
-      valid: true,
+      valid: true as const,
       tenant,
       expectedEmail: tenant.sysadminEmail,
     };
   }
 
   async completeSetup(registrationKey: string) {
-    const license = await this.prisma.license.findUnique({
+    const license = await this.prisma.licenses.findUnique({
       where: { registrationKey },
     });
-
     if (!license) throw new NotFoundException('License not found');
 
-    const result = await this.prisma.lguTenant.update({
-      where: { id: license.tenantId },
-      data: { status: 'active', sysadminVerifiedAt: new Date() },
-    });
+    if (license.status !== LicenseStatus.active) {
+      throw new NotFoundException('License is no longer active');
+    }
 
-    return result;
+    if (license.expiresAt && license.expiresAt < new Date()) {
+      throw new NotFoundException('License has expired');
+    }
+
+    return this.prisma.lguTenants.update({
+      where: { tenantId: license.tenantId },
+      data: {
+        status: TenantStatus.active,
+        sysadminVerifiedAt: new Date(),
+      },
+    });
   }
 }
-

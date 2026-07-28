@@ -5,9 +5,13 @@ import {
   NotFoundException,
   ForbiddenException,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
+import { InternalServiceGuard } from '../auth/guards/internal-service.guard';
 
+// Cross-service only - called by the tenant/staff server, never a browser.
+@UseGuards(InternalServiceGuard)
 @Controller('internal/tenants')
 export class InternalTenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
