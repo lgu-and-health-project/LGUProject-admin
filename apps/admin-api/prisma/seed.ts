@@ -1,15 +1,17 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AdminRole, AdminStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcryptjs';
 
 const connectionString = process.env.DATABASE_URL;
-const isRemote = connectionString?.includes('render.com') || connectionString?.includes('supabase');
+const isRemote =
+  connectionString?.includes('render.com') ||
+  connectionString?.includes('supabase');
 
-const pool = new Pool({ 
+const pool = new Pool({
   connectionString,
-  ...(isRemote && { ssl: { rejectUnauthorized: false } })
+  ...(isRemote && { ssl: { rejectUnauthorized: false } }),
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -17,7 +19,6 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Seeding initial SuperAdmin...');
 
-  // Use environment variables. NEVER hardcode the initial admin credentials here!
   const adminEmail = process.env.INITIAL_SUPERADMIN_EMAIL;
   const adminPassword = process.env.INITIAL_SUPERADMIN_PASSWORD;
 
@@ -28,32 +29,33 @@ async function main() {
     return;
   }
 
-  // WIPE DATABASE CLEAN
   if (process.env.NODE_ENV !== 'production') {
     console.log('Wiping all existing data for a clean slate...');
-    await prisma.superAdminAuditLog.deleteMany();
-    await prisma.lguTenant.deleteMany();
-    await prisma.superAdmin.deleteMany();
+    await prisma.superAdminAuditLogs.deleteMany();
+    await prisma.refreshTokens.deleteMany();
+    await prisma.licenses.deleteMany();
+    await prisma.lguTenants.deleteMany();
+    await prisma.superAdmins.deleteMany();
   } else {
     console.log('Production environment detected. Skipping database wipe.');
   }
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-  const superAdmin = await prisma.superAdmin.upsert({
+  const superAdmin = await prisma.superAdmins.upsert({
     where: { email: adminEmail },
     update: {
       passwordHash,
-      fullName: 'Infinite Motion Xpress Admin',
-      role: 'ROOT_SUPERADMIN',
-      status: 'active',
+      fullName: 'Root Superadmin',
+      role: AdminRole.ROOT_SUPERADMIN,
+      status: AdminStatus.ACTIVE,
     },
     create: {
       email: adminEmail,
       passwordHash,
-      fullName: 'Infinite Motion Xpress Admin',
-      role: 'ROOT_SUPERADMIN',
-      status: 'active',
+      fullName: 'Root Superadmin',
+      role: AdminRole.ROOT_SUPERADMIN,
+      status: AdminStatus.ACTIVE,
     },
   });
 
