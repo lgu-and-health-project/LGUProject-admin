@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@trpc/client": "^11.18.0",
+    "@trpc/server": "^11.18.0",
     "date-fns": "^4.4.0",
     "fuse.js": "^7.5.0",
     "lucide-react": "^1.24.0",
