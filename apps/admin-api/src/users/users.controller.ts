@@ -2,7 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Req } fro
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CitizenAuthGuard } from './citizen-auth.guard';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 @ApiTags('Citizens (Users)')
 @Controller('users')
