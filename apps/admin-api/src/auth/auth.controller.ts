@@ -1,40 +1,145 @@
-import { Controller, Post, Body, Res, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  Req,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { LoginDto } from './dto/login.dto';
+import { AuditAction, AuditStatus, AuditTargetType } from '@prisma/client';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Superadmins (Auth)')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private auditLogsService: AuditLogsService,
+  ) {}
 
+  @ApiOperation({ summary: 'Superadmin login' })
+  @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() signInDto: Record<string, any>, @Res({ passthrough: true }) res: Response) {
-    if (!signInDto.email || !signInDto.password) {
-      throw new UnauthorizedException('Email and password required');
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+
+    try {
+      const user = await this.authService.validateAdmin(
+        dto.email,
+        dto.password,
+      );
+
+      const {
+        access_token,
+        refresh_token,
+        user: userData,
+      } = await this.authService.login(user);
+
+      await this.auditLogsService.logAction({
+        actorId: user.superadminId,
+        action: AuditAction.login,
+        status: AuditStatus.SUCCESS,
+        targetType: AuditTargetType.session,
+        ipAddress,
+        userAgent,
+      });
+
+      res.cookie('access_token', access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+      res.cookie('refresh_token', refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/auth',
+      });
+
+      return {
+        message: 'Logged in successfully',
+        user: userData,
+        access_token,
+      };
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        await this.auditLogsService
+          .logAction({
+            action: AuditAction.login,
+            status: AuditStatus.FAILURE,
+            targetType: AuditTargetType.session,
+            metadata: { attempted_email: dto.email },
+            ipAddress,
+            userAgent,
+          })
+          .catch(() => undefined);
+      }
+      throw err;
     }
-
-    // 1. Validate credentials
-    const user = await this.authService.validateAdmin(signInDto.email, signInDto.password);
-    
-    // 2. Generate secure JWT
-    const { access_token, user: userData } = await this.authService.login(user);
-
-    // 3. SECURE COOKIE SETTINGS
-    res.cookie('access_token', access_token, {
-      httpOnly: true,     // Cannot be accessed by client-side JS (XSS protection)
-      secure: process.env.NODE_ENV === 'production', // Send over HTTPS only in production
-      sameSite: 'lax',    // Mitigates CSRF attacks
-      maxAge: 2 * 60 * 60 * 1000, // 2 hours expiry
-      path: '/',          // THIS IS CRITICAL! Allows cookie on ALL routes, not just /auth
-    });
-
-    return { message: 'Logged in successfully', user: userData, access_token };
   }
 
+  @ApiOperation({ summary: 'Refresh superadmin session token' })
+  @Throttle({ auth: {} })
+  @Post('refresh')
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.refresh_token as string | undefined;
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token found');
+    }
+
+    const {
+      access_token,
+      refresh_token: new_refresh_token,
+      user: userData,
+    } = await this.authService.refresh(refreshToken);
+
+    res.cookie('access_token', access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+      path: '/',
+    });
+    res.cookie('refresh_token', new_refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/auth',
+    });
+
+    return { access_token, user: userData };
+  }
+
+  @ApiOperation({ summary: 'Logout superadmin session' })
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
-    // Overwrite the cookie to invalidate it instantly on the client side
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refresh_token as string | undefined;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+
     res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/auth' });
     return { message: 'Logged out successfully' };
   }
 }

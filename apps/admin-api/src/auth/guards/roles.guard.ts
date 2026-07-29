@@ -1,0 +1,27 @@
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { AdminRole } from '@prisma/client';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import type { Request } from 'express';
+import type { JwtPayload } from '../auth.types';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<AdminRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<Request>();
+    const user = request['user'] as JwtPayload | undefined;
+
+    return !!user && requiredRoles.includes(user.role);
+  }
+}

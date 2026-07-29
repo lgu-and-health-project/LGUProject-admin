@@ -1,74 +1,158 @@
+generator client {
+  provider     = "prisma-client-js"
+  output       = "../node_modules/@prisma/client-tenant"
+  moduleFormat = "cjs"
+}
+
 datasource db {
   provider = "postgresql"
 }
 
-generator client {
-  provider     = "prisma-client"
-  output       = "../generated/prisma"
-  moduleFormat = "cjs"
-}
-
 model Organization {
-  code                String   @id
+  code                String            @id
   name                String
-  level               String // "province" | "city" | "municipality" | "barangay"
+  level               String
   emailDomain         String?
   customDomain        String?
-  usesGoogleWorkspace Boolean  @default(false)
-  createdAt           DateTime @default(now())
+  usesGoogleWorkspace Boolean           @default(false)
+  status              String            @default("active")
+  registrationKey     String            @unique
+  createdAt           DateTime          @default(now())
+  barangay            String?
+  cityClassification  String?
+  cityMunicipality    String?
+  contactNumber       String?
+  entityCategory      String?
+  entityName          String?
+  headOfOfficeName    String?
+  officialEmail       String?
+  province            String?
+  psgcCode            String?           @unique
+  region              String?
+  sysadminEmail       String?
+  sysadminName        String?
+  applications        ApplicationCase[]
+  auditLogs           AuditLog[]
+  citizens            CitizenUser[]
+  departments         Department[]
+  roles               Role[]
+  invites             StaffInvite[]
+  staff               StaffUser[]
+}
 
-  departments  Department[]
-  staff        StaffUser[]
-  invites      StaffInvite[]
-  citizens     CitizenUser[]
-  applications ApplicationCase[]
-  auditLogs    AuditLog[]
+model Role {
+  id              String           @id @default(uuid())
+  orgCode         String
+  roleName        String
+  isSystemDefault Boolean          @default(false)
+  org             Organization     @relation(fields: [orgCode], references: [code])
+  permissions     RolePermission[]
+  staff           StaffUser[]
+
+  @@index([orgCode])
+}
+
+model Module {
+  id       String  @id
+  label    String
+  category String
+  minLevel String?
+
+  @@index([category])
+}
+
+model RolePermission {
+  id         String    @id @default(uuid())
+  roleId     String
+  module     String
+  canCreate  Boolean   @default(false)
+  canDelete  Boolean   @default(false)
+  canRead    Boolean   @default(false)
+  canUpdate  Boolean   @default(false)
+  divisionId String?
+  division   Division? @relation(fields: [divisionId], references: [id])
+  role       Role      @relation(fields: [roleId], references: [id])
+
+  @@index([roleId])
+  @@index([divisionId])
 }
 
 model Department {
-  id       String       @id @default(uuid())
-  orgCode  String
-  org      Organization @relation(fields: [orgCode], references: [code])
-  name     String
-  category String // "mandatory" | "optional" | "custom"
-
-  staff        StaffUser[]
+  id           String            @id @default(uuid())
+  orgCode      String
+  name         String
+  category     String
   applications ApplicationCase[]
+  org          Organization      @relation(fields: [orgCode], references: [code])
+  divisions    Division[]
+  staff        StaffUser[]
 
   @@index([orgCode])
 }
 
-model StaffUser {
-  id           String       @id @default(uuid())
-  orgCode      String
-  org          Organization @relation(fields: [orgCode], references: [code])
-  email        String       @unique
-  passwordHash String? // nullable — Google OAuth users may have none
-  authProvider String       @default("password") // "password" | "google"
-  status       String       @default("active") // "active" | "suspended"
-  baseRole     String
-  departmentId String
-  department   Department   @relation(fields: [departmentId], references: [id])
-  createdAt    DateTime     @default(now())
+model Division {
+  id              String           @id @default(uuid())
+  departmentId    String
+  name            String
+  department      Department       @relation(fields: [departmentId], references: [id])
+  rolePermissions RolePermission[]
 
-  employee    Employee?
-  grants      PermissionGrant[]
-  invitesSent StaffInvite[]     @relation("InvitedBy")
-  auditLogs   AuditLog[]
+  @@index([departmentId])
+}
+
+model StaffUser {
+  id                String                    @id @default(uuid())
+  orgCode           String
+  email             String                    @unique
+  passwordHash      String?
+  authProvider      String                    @default("password")
+  status            String                    @default("active")
+  baseRole          String?
+  departmentId      String?
+  createdAt         DateTime                  @default(now())
+  accessExpiry      DateTime?
+  appointmentStatus String?
+  name              String?
+  office            String?
+  officeOtherText   String?
+  positionTitle     String?
+  roleId            String?
+  auditLogs         AuditLog[]
+  employee          Employee?
+  grants            PermissionGrant[]
+  invitesSent       StaffInvite[]             @relation("InvitedBy")
+  overrides         StaffPermissionOverride[]
+  department        Department?               @relation(fields: [departmentId], references: [id])
+  org               Organization              @relation(fields: [orgCode], references: [code])
+  role              Role?                     @relation(fields: [roleId], references: [id])
 
   @@index([orgCode])
+}
+
+model StaffPermissionOverride {
+  id          String    @id @default(uuid())
+  staffUserId String
+  module      String
+  canCreate   Boolean   @default(false)
+  canDelete   Boolean   @default(false)
+  canRead     Boolean   @default(false)
+  canUpdate   Boolean   @default(false)
+  divisionId  String?
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
+
+  @@index([staffUserId])
 }
 
 model StaffInvite {
   id          String       @id @default(uuid())
   orgCode     String
-  org         Organization @relation(fields: [orgCode], references: [code])
   email       String
   invitedById String
-  invitedBy   StaffUser    @relation("InvitedBy", fields: [invitedById], references: [id])
-  status      String       @default("pending") // "pending" | "accepted" | "revoked" | "expired"
+  status      String       @default("pending")
   expiresAt   DateTime
   createdAt   DateTime     @default(now())
+  invitedBy   StaffUser    @relation("InvitedBy", fields: [invitedById], references: [id])
+  org         Organization @relation(fields: [orgCode], references: [code])
 
   @@index([orgCode])
 }
@@ -76,60 +160,58 @@ model StaffInvite {
 model Employee {
   id          String    @id @default(uuid())
   staffUserId String    @unique
-  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
   position    String
   dateHired   DateTime
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
 }
 
 model PermissionGrant {
   id          String    @id @default(uuid())
   staffUserId String
-  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
-  permission  String // e.g. "manage_hr", "review_ordinance", "approve_permits"
-  scopeType   String // "department" | "case" | "org"
+  permission  String
+  scopeType   String
   scopeId     String
   createdAt   DateTime  @default(now())
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id])
 }
 
 model CitizenUser {
-  id                String       @id @default(uuid())
+  id                String            @id @default(uuid())
   orgCode           String
-  org               Organization @relation(fields: [orgCode], references: [code])
-  email             String?      @unique
-  phone             String?      @unique
+  email             String?           @unique
+  phone             String?           @unique
   passwordHash      String
   fullName          String
-  verificationLevel String       @default("unverified") // "unverified" | "id_verified"
-  philsysNumberHash String?      @unique
-  createdAt         DateTime     @default(now())
-
-  applications ApplicationCase[]
+  verificationLevel String            @default("unverified")
+  philsysNumberHash String?           @unique
+  createdAt         DateTime          @default(now())
+  applications      ApplicationCase[]
+  org               Organization      @relation(fields: [orgCode], references: [code])
 
   @@index([orgCode])
 }
 
 model ServiceType {
-  code                 String  @id
+  code                 String            @id
   name                 String
-  category             String // "barangay" | "municipal" | "provincial"
-  requiresVerification Boolean @default(false)
-
-  applications ApplicationCase[]
+  category             String
+  requiresVerification Boolean           @default(false)
+  applications         ApplicationCase[]
 }
 
 model ApplicationCase {
   id                   String       @id @default(uuid())
   orgCode              String
-  org                  Organization @relation(fields: [orgCode], references: [code])
   citizenId            String
-  citizen              CitizenUser  @relation(fields: [citizenId], references: [id])
   serviceTypeCode      String
-  serviceType          ServiceType  @relation(fields: [serviceTypeCode], references: [code])
-  status               String       @default("submitted") // "submitted" | "in_review" | "approved" | "rejected"
+  status               String       @default("submitted")
   assignedDepartmentId String?
-  assignedDepartment   Department?  @relation(fields: [assignedDepartmentId], references: [id])
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
+  assignedDepartment   Department?  @relation(fields: [assignedDepartmentId], references: [id])
+  citizen              CitizenUser  @relation(fields: [citizenId], references: [id])
+  org                  Organization @relation(fields: [orgCode], references: [code])
+  serviceType          ServiceType  @relation(fields: [serviceTypeCode], references: [code])
 
   @@index([orgCode])
 }
@@ -137,14 +219,14 @@ model ApplicationCase {
 model AuditLog {
   id         String        @id @default(uuid())
   orgCode    String?
-  org        Organization? @relation(fields: [orgCode], references: [code])
   actorId    String?
-  actor      StaffUser?    @relation(fields: [actorId], references: [id])
   actorEmail String
-  action     String // "login_success" | "login_failed" | "account_suspended"
+  action     String
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime      @default(now())
+  actor      StaffUser?    @relation(fields: [actorId], references: [id])
+  org        Organization? @relation(fields: [orgCode], references: [code])
 
   @@index([orgCode])
   @@index([actorId])

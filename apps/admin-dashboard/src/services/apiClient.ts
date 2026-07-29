@@ -28,6 +28,41 @@ export async function fetchApi<T>(
 
   if (!response.ok) {
     if (response.status === 401) {
+      if (endpoint !== "/auth/refresh") {
+        try {
+          const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+          });
+
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            if (typeof window !== "undefined") {
+              localStorage.setItem("access_token", refreshData.access_token);
+            }
+
+            // Retry the original request
+            const newHeaders = {
+              ...defaultHeaders,
+              ...options.headers,
+              Authorization: `Bearer ${refreshData.access_token}`,
+            };
+            const retryResponse = await fetch(url, {
+              ...options,
+              credentials: "include",
+              headers: newHeaders,
+            });
+
+            if (retryResponse.ok) {
+              if (retryResponse.status === 204) return {} as T;
+              return await retryResponse.json() as T;
+            }
+          }
+        } catch (e) {
+          console.error("Token refresh failed", e);
+        }
+      }
+
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
         if (!window.location.pathname.includes("/login")) {

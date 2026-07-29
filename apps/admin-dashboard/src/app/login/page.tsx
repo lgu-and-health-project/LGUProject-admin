@@ -91,7 +91,11 @@ export default function Login() {
                   className="absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary hover:text-foreground transition-colors"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -127,13 +131,6 @@ export default function Login() {
 
         {/* Showcase / Information Card */}
         <div className="relative z-10 p-12 lg:p-16 text-center max-w-3xl backdrop-blur-xl bg-surface/40 dark:bg-surface/20 border border-white/20 dark:border-white/5 rounded-[2rem] shadow-2xl">
-          <div className="inline-flex items-center justify-center space-x-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full mb-8 text-sm font-semibold tracking-wide">
-            <span className="relative flex h-2 w-2 mr-1">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            System Online
-          </div>
           <h2 className="text-4xl lg:text-5xl font-extrabold text-foreground mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">
             LGU Platform Services
           </h2>

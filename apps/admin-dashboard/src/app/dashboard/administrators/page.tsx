@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -32,6 +32,10 @@ export default function AdministratorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     fullName: "",
@@ -42,7 +46,6 @@ export default function AdministratorsPage() {
   const [inviteSuccessLink, setInviteSuccessLink] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
-  // Confirm Modal State
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     idToDelete: string | null;
@@ -57,7 +60,7 @@ export default function AdministratorsPage() {
     }
     return null;
   });
-  
+
   const [currentUserRole, setCurrentUserRole] = useState<AdminRole | null>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -72,7 +75,6 @@ export default function AdministratorsPage() {
   useEffect(() => {
     fetchAdmins();
 
-    // Silent background polling every 5 seconds for realtime seamlessness
     const intervalId = setInterval(() => {
       adminService
         .getAdmins()
@@ -104,7 +106,6 @@ export default function AdministratorsPage() {
     e.preventDefault();
     setInviteLoading(true);
     try {
-      // The API returns the created admin which includes the inviteToken
       const newAdmin: any = await adminService.inviteAdmin(inviteForm);
       setAdmins((prev) => {
         if (prev.some(a => a.id === newAdmin.id)) {
@@ -112,15 +113,13 @@ export default function AdministratorsPage() {
         }
         return [...prev, newAdmin];
       });
-      if (newAdmin.status === "PENDING_APPROVAL") {
-        setInviteSuccessLink("PENDING");
-      } else {
-        setInviteSuccessLink(
-          `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
-        );
-      }
+      
+      setInviteSuccessLink(
+        `${window.location.origin}/invite?token=${newAdmin.inviteToken}`,
+      );
+      
       setIsCopied(false);
-      toast.success(newAdmin.status === "PENDING_APPROVAL" ? "Invite sent for approval!" : "Invite created and sent successfully!");
+      toast.success("Invite created and sent successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to invite administrator");
     } finally {
@@ -128,34 +127,14 @@ export default function AdministratorsPage() {
     }
   };
 
-  const handleApproveAdmin = async (id: string) => {
-    try {
-      const updatedAdmin: any = await adminService.approveAdmin(id);
-      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
-      setInviteForm({ fullName: updatedAdmin.fullName, email: updatedAdmin.email, role: updatedAdmin.role });
-      setInviteSuccessLink(`${window.location.origin}/invite?token=${updatedAdmin.inviteToken}`);
-      setIsInviteModalOpen(true);
-      toast.success("Administrator approved successfully!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve administrator");
-    }
-  };
-
-  const handleRejectPendingAdmin = async (id: string) => {
-    try {
-      const updatedAdmin = await adminService.rejectPendingAdmin(id);
-      setAdmins((prev) => prev.map((a) => (a.id === id ? updatedAdmin : a)));
-      toast.success("Administrator rejected.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject administrator");
-    }
-  };
-
   const handleResendInvite = async (id: string) => {
     try {
       toast.loading("Resending invite...", { id: "resend-invite" });
-      await adminService.resendInvite(id);
+      const res = await adminService.resendInvite(id);
       toast.success("Invitation resent successfully!", { id: "resend-invite" });
+      if (res.inviteToken) {
+        setAdmins(prev => prev.map(a => a.id === id ? { ...a, inviteToken: res.inviteToken } : a));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend invite", { id: "resend-invite" });
     }
@@ -190,28 +169,16 @@ export default function AdministratorsPage() {
             Active
           </span>
         );
-      case "PENDING_APPROVAL":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-            Pending Approval
-          </span>
-        );
       case "INVITED":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
             Invited
           </span>
         );
-      case "SUSPENDED":
+      case "REVOKED":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-            Suspended
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-            Rejected
+            Revoked
           </span>
         );
       default:
@@ -226,10 +193,26 @@ export default function AdministratorsPage() {
     return <Shield className="w-4 h-4 text-text-secondary mr-1.5" />;
   };
 
+  const filteredAdmins = admins.filter(
+    (a) =>
+      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.email.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
+  const paginatedAdmins = filteredAdmins.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-8 h-full flex flex-col relative w-full">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Administrator Management
@@ -278,8 +261,8 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm">
-        <table className="min-w-full divide-y divide-text-secondary/10">
+      <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
+        <table className="min-w-full h-full divide-y divide-text-secondary/10">
           <thead className="bg-background/50">
             <tr>
               <th
@@ -327,7 +310,7 @@ export default function AdministratorsPage() {
                   </p>
                 </td>
               </tr>
-            ) : admins.length === 0 ? (
+            ) : filteredAdmins.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
@@ -337,15 +320,7 @@ export default function AdministratorsPage() {
                 </td>
               </tr>
             ) : (
-              admins
-                .filter(
-                  (a) =>
-                    a.fullName
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()) ||
-                    a.email.toLowerCase().includes(searchQuery.toLowerCase()),
-                )
-                .map((admin) => {
+              paginatedAdmins.map((admin) => {
                   const normalizedUserRole = currentUserRole?.toUpperCase() || "";
                   const normalizedTargetRole = admin.role?.toUpperCase() || "";
 
@@ -359,9 +334,9 @@ export default function AdministratorsPage() {
                     key={admin.id}
                     className="hover:bg-background/50 transition-colors group relative"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-sm">
                           {admin.fullName.charAt(0)}
                         </div>
                         <div className="ml-4">
@@ -374,7 +349,7 @@ export default function AdministratorsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       <div className="flex items-center">
                         {getRoleIcon(admin.role)}
                         <span
@@ -386,42 +361,37 @@ export default function AdministratorsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-2 whitespace-nowrap">
                       {getStatusBadge(admin.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                       {admin.appointedByName || (
                         <span className="text-text-secondary/50">
                           — System —
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                       {admin.status === "ACTIVE"
                         ? new Date(admin.createdAt).toLocaleDateString()
                         : "—"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {admin.status === "PENDING_APPROVAL" ? (
+                    <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
+                      {admin.status === "INVITED" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {admin.inviteToken && (
+                            <button
+                              onClick={() => {
+                                const link = `${window.location.origin}/invite?token=${admin.inviteToken}`;
+                                navigator.clipboard.writeText(link);
+                                toast.success("Invite link copied to clipboard!");
+                              }}
+                              className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
+                            >
+                              <Copy className="w-3 h-3 mr-1" /> Copy Link
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleApproveAdmin(admin.id)}
-                            className="p-1.5 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-200 transition-colors"
-                            title="Approve"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRejectPendingAdmin(admin.id)}
-                            className="p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-                            title="Reject"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : admin.status === "INVITED" ? (
-                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
                             onClick={() => handleResendInvite(admin.id)}
                             className="inline-flex items-center text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-1 rounded"
                           >
@@ -435,7 +405,7 @@ export default function AdministratorsPage() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                      ) : admin.status === "REJECTED" ? (
+                      ) : admin.status === "REVOKED" ? (
                         <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleDeleteAdminClick(admin.id)}
@@ -447,7 +417,7 @@ export default function AdministratorsPage() {
                         </div>
                       ) : admin.email !== currentUserEmail ? (
                         <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.preventDefault();
                               setOpenMenuId(openMenuId === admin.id ? null : admin.id);
@@ -508,30 +478,43 @@ export default function AdministratorsPage() {
                 );
               })
             )}
-          </tbody>
+
+
+                {/* Empty rows to stretch table height evenly */}
+                {Array.from({ length: Math.max(0, itemsPerPage - paginatedAdmins.length) }).map((_, index) => (
+                  <tr key={`empty-${index}`} className="hover:bg-transparent">
+                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
+                      <div className="h-8 w-8"></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
         </table>
 
-        {/* Pagination placeholder */}
-        <div className="px-6 py-4 border-t border-text-secondary/10 bg-background/30 flex items-center justify-between">
-          <span className="text-sm text-text-secondary">
-            Showing {admins.length > 0 ? 1 : 0} to {admins.length} of{" "}
-            {admins.length} entries
-          </span>
-          <div className="flex space-x-1">
-            <button
-              className="px-3 py-1 border border-text-secondary/20 rounded-md text-sm text-text-secondary hover:bg-surface disabled:opacity-50"
-              disabled
-            >
-              Previous
-            </button>
-            <button
-              className="px-3 py-1 border border-text-secondary/20 rounded-md text-sm text-text-secondary hover:bg-surface disabled:opacity-50"
-              disabled
-            >
-              Next
-            </button>
+        {/* Pagination */}
+        {!loading && filteredAdmins.length > 0 && (
+          <div className="px-6 py-4 border-t border-text-secondary/10 flex items-center justify-between bg-background/30 mt-auto">
+            <div className="text-sm text-text-secondary">
+              Showing <span className="font-medium text-foreground">{Math.min(filteredAdmins.length, (currentPage - 1) * itemsPerPage + 1)}</span> to <span className="font-medium text-foreground">{Math.min(filteredAdmins.length, currentPage * itemsPerPage)}</span> of <span className="font-medium text-foreground">{filteredAdmins.length}</span> results
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Invite Modal Overlay */}
@@ -560,7 +543,7 @@ export default function AdministratorsPage() {
                     {inviteSuccessLink === "PENDING" ? "Invite Pending Approval!" : "Invitation Sent!"}
                   </h3>
                   <p className="text-sm text-text-secondary mb-4">
-                    {inviteSuccessLink === "PENDING" 
+                    {inviteSuccessLink === "PENDING"
                       ? "The invitation has been sent for superadmin approval. Once approved, the email will be sent automatically."
                       : "An email has been automatically sent to the administrator with instructions to set their password. If they didn't receive it, you can share this backup link:"}
                   </p>

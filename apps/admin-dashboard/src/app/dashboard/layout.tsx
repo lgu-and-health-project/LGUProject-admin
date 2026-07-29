@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  LogOut,
   Menu,
   Building2,
   ShieldCheck,
@@ -47,7 +47,7 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`relative flex flex-col bg-surface border-r border-text-secondary/10 transition-all duration-300 ease-in-out overflow-hidden ${
           collapsed ? "w-[72px]" : "w-64"
         }`}
@@ -57,7 +57,7 @@ export default function DashboardLayout({
           <div className="h-8 w-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
             <span className="text-white font-bold text-sm tracking-tighter">LP</span>
           </div>
-          <span 
+          <span
             className={`font-bold text-foreground transition-opacity duration-300 ${
               collapsed ? "opacity-0 hidden" : "opacity-100 block"
             }`}
@@ -71,14 +71,15 @@ export default function DashboardLayout({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
-            
+
             return (
               <Link
                 key={item.name}
                 href={item.href}
+                prefetch={false}
                 className={`flex items-center rounded-xl p-2.5 group transition-colors relative ${
-                  isActive 
-                    ? "bg-primary/10 text-primary" 
+                  isActive
+                    ? "bg-primary/10 text-primary"
                     : "text-text-secondary hover:bg-surface-hover hover:text-foreground"
                 }`}
                 title={collapsed ? item.name : undefined}
@@ -86,8 +87,8 @@ export default function DashboardLayout({
                 <div className="flex-shrink-0 flex items-center justify-center">
                   <Icon size={20} className={isActive ? "text-primary" : "text-text-secondary group-hover:text-foreground transition-colors"} />
                 </div>
-                
-                <span 
+
+                <span
                   className={`ml-3 text-sm font-medium whitespace-nowrap transition-opacity duration-300 ${
                     collapsed ? "opacity-0 hidden" : "opacity-100 block"
                   }`}
@@ -116,8 +117,8 @@ export default function DashboardLayout({
             <div className="flex-shrink-0 flex items-center justify-center">
               <LogOut size={20} className="group-hover:text-red-500 transition-colors" />
             </div>
-            
-            <span 
+
+            <span
               className={`ml-3 text-sm font-medium whitespace-nowrap transition-opacity duration-300 ${
                 collapsed ? "opacity-0 hidden" : "opacity-100 block"
               }`}
@@ -140,19 +141,19 @@ export default function DashboardLayout({
         {/* Top Header */}
         <header className="flex items-center justify-between h-16 px-6 bg-surface border-b border-text-secondary/10 z-10">
           <div className="flex items-center space-x-4">
-            <button 
+            <button
               onClick={() => setCollapsed(!collapsed)}
               className="p-2 -ml-2 rounded-lg text-text-secondary hover:bg-background hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
               aria-label="Toggle Sidebar"
             >
               <Menu size={20} />
             </button>
-            
+
             <h1 className="font-bold text-lg text-foreground tracking-tight border-l border-text-secondary/20 pl-4">
               {currentNav.name}
             </h1>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {/* Future buttons can go here */}
           </div>

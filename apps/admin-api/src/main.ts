@@ -1,16 +1,39 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { AppModule } from './app.module';
+import { TrpcService } from './trpc/trpc.service';
+import { TrpcAppRouter } from './trpc/trpc.router';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import compression from 'compression';
 import * as dns from 'dns';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
-// Force Node.js to use IPv4 over IPv6. Node 17+ prefers IPv6, which breaks Render's SMTP networking.
 dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
-  // 1. Enable Cookie Parsing
   app.use(cookieParser());
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+      crossOriginEmbedderPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+    }),
+  );
+
+  app.use(compression());
+
+  // ValidationPipe still applies to REST controllers (auth, internal).
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
   
   // 2. Enable CORS with a robust dynamic origin checker
   app.enableCors({
@@ -36,6 +59,26 @@ async function bootstrap() {
     credentials: true, // This is REQUIRED for the browser to accept HttpOnly cookies from the backend
   });
 
+  // Mount tRPC on /trpc. Auth, internal, and health routes stay REST.
+  const trpcService = app.get(TrpcService);
+  const trpcAppRouter = app.get(TrpcAppRouter);
+  app.use(
+    '/trpc',
+    createExpressMiddleware({
+      router: trpcAppRouter.appRouter,
+      createContext: trpcService.createContext,
+    }),
+  );
+
+  const config = new DocumentBuilder()
+    .setTitle('LGU Platform Admin API')
+    .setDescription('Central API for Superadmins, Tenants, and Citizens')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }
-bootstrap();
+void bootstrap();

@@ -7,7 +7,8 @@ import type { Request } from 'express';
 interface JwtPayload {
   sub: string;
   email: string;
-  role: string;
+  role: string | null;
+  roleId: string | null;
   orgCode: string;
   departmentId: string | null;
 }
@@ -29,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: payload.sub,
       email: payload.email,
       role: payload.role,
+      roleId: payload.roleId,
       orgCode: payload.orgCode,
       departmentId: payload.departmentId,
     };
