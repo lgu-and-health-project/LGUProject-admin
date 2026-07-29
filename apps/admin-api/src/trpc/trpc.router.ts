@@ -23,4 +23,4 @@ export class TrpcAppRouter {
 }
 
 /** The merged tRPC router type — import this in admin-dashboard for the tRPC client. */
-export type AppRouter = ReturnType<TrpcAppRouter['appRouter']>;
+export type AppRouter = TrpcAppRouter['appRouter'];

@@ -57,6 +57,7 @@ enum AuditAction {
   delete_tenant
   reissue_license
   revoke_license
+  sync_psgc
 }
 
 enum AuditTargetType {
@@ -64,6 +65,7 @@ enum AuditTargetType {
   superadmin
   license
   session
+  psgc
 }
 
 enum AuditStatus {
@@ -124,6 +126,24 @@ model PsgcLocations {
   fetchedAt          DateTime        @default(now()) @map("fetched_at") @db.Timestamptz
 
   tenant LguTenants[]
+}
+
+enum SyncStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model PsgcSyncLogs {
+  syncId         String      @id @default(uuid()) @map("sync_id") @db.Uuid
+  psgcVersion    String      @map("psgc_version")
+  status         SyncStatus  @default(IN_PROGRESS)
+  progress       Int         @default(0)
+  totalRecords   Int         @default(0) @map("total_records")
+  trafficUsage   Int         @default(0) @map("traffic_usage")
+  startedAt      DateTime    @default(now()) @map("started_at") @db.Timestamptz
+  completedAt    DateTime?   @map("completed_at") @db.Timestamptz
+  errorDetails   String?     @map("error_details")
 }
 
 model LguTenants {
