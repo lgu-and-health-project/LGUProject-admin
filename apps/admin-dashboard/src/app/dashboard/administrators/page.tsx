@@ -140,6 +140,21 @@ export default function AdministratorsPage() {
     }
   };
 
+  const handleApproveInvite = async (id: string) => {
+    try {
+      toast.loading("Approving invite...", { id: "approve-invite" });
+      const res = await adminService.approveInvite(id);
+      toast.success("Invitation approved successfully!", { id: "approve-invite" });
+      setAdmins((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, status: "INVITED" as AdminStatus, inviteToken: res.inviteToken } : a
+        )
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve invite", { id: "approve-invite" });
+    }
+  };
+
   const executeDeleteAdmin = async () => {
     const id = confirmState.idToDelete;
     if (!id) return;
@@ -173,6 +188,12 @@ export default function AdministratorsPage() {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
             Invited
+          </span>
+        );
+      case "PENDING_APPROVAL":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200">
+            Pending Approval
           </span>
         );
       case "REVOKED":
@@ -377,7 +398,25 @@ export default function AdministratorsPage() {
                         : "—"}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
-                      {admin.status === "INVITED" ? (
+                      {admin.status === "PENDING_APPROVAL" ? (
+                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {normalizedUserRole === "ROOT_SUPERADMIN" && (
+                            <button
+                              onClick={() => handleApproveInvite(admin.id)}
+                              className="inline-flex items-center text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors bg-emerald-50 px-2 py-1 rounded"
+                            >
+                              <Check className="w-3 h-3 mr-1" /> Approve
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteAdminClick(admin.id)}
+                            className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                            title="Cancel Invite"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : admin.status === "INVITED" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           {admin.inviteToken && (
                             <button

@@ -136,12 +136,12 @@ export const psgcService = {
 
   /** Get the most recent sync status (ROOT_SUPERADMIN only). */
   getSyncStatus: async (): Promise<SyncStatusData | null> => {
-    return fetchApi("/psgc/sync/status");
+    return fetchApi("/psgc/sync/status", { cache: "no-store" });
   },
 
   /** Get the history of past syncs (ROOT_SUPERADMIN only). */
   getSyncHistory: async (): Promise<SyncStatusData[]> => {
-    return fetchApi("/psgc/sync/history");
+    return fetchApi("/psgc/sync/history", { cache: "no-store" });
   },
 
   /**

@@ -154,7 +154,18 @@ export class PsgcService {
     const existing = await this.prisma.psgcSyncLogs.findFirst({
       where: { status: 'IN_PROGRESS' },
     });
-    if (existing) return existing.syncId;
+    if (existing) {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      if (existing.startedAt < thirtyMinutesAgo) {
+        // Recover from a stuck sync
+        await this.prisma.psgcSyncLogs.update({
+          where: { syncId: existing.syncId },
+          data: { status: 'FAILED', errorDetails: 'Timed out (stuck in progress)' },
+        });
+      } else {
+        return existing.syncId;
+      }
+    }
 
     const log = await this.prisma.psgcSyncLogs.create({
       data: { psgcVersion, status: 'IN_PROGRESS' },
@@ -168,20 +179,22 @@ export class PsgcService {
   }
 
   async cancelSync(): Promise<{ message: string }> {
-    const existing = await this.prisma.psgcSyncLogs.findFirst({
+    const existingLogs = await this.prisma.psgcSyncLogs.findMany({
       where: { status: 'IN_PROGRESS' },
     });
-    if (!existing) return { message: 'No sync in progress.' };
+    if (existingLogs.length === 0) return { message: 'No sync in progress.' };
 
-    this.cancelFlags.add(existing.syncId);
-    await this.prisma.psgcSyncLogs.update({
-      where: { syncId: existing.syncId },
-      data: {
-        status: 'FAILED',
-        errorDetails: 'Canceled by user',
-        completedAt: new Date(),
-      },
-    });
+    for (const log of existingLogs) {
+      this.cancelFlags.add(log.syncId);
+      await this.prisma.psgcSyncLogs.update({
+        where: { syncId: log.syncId },
+        data: {
+          status: 'FAILED',
+          errorDetails: 'Canceled by user',
+          completedAt: new Date(),
+        },
+      });
+    }
     return { message: 'Sync cancellation requested.' };
   }
 

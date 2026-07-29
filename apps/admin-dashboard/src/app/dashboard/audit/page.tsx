@@ -65,10 +65,14 @@ export default function AuditLogsPage() {
   const filteredLogs = logs.filter(log => {
     if (log.action === "sync_psgc") return false;
 
-    const detailsText = formatAuditDetails(log.action, log.metadata);
+    if (log.action === "sync_psgc") return false;
+
+    const detailsText = formatAuditDetails(log.action, log.metadata, (log as any).status);
     const matchesSearch =
       (log.actor?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
       (log.actor?.email.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (log.metadata?.attempted_email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (log.metadata?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
       detailsText.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = filterAction === "ALL" || log.action === filterAction;
@@ -185,8 +189,8 @@ export default function AuditLogsPage() {
                         <div className="text-xs opacity-70">{format(new Date(log.createdAt), "h:mm:ss a")}</div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap">
-                        <div className="text-sm font-medium text-foreground">{log.actor?.fullName || "System"}</div>
-                        <div className="text-xs text-text-secondary">{log.actor?.email || "system"}</div>
+                        <div className="text-sm font-medium text-foreground">{log.actor?.fullName || (log.action === 'login' && (log as any).status === 'FAILURE' ? 'Unknown User' : 'System')}</div>
+                        <div className="text-xs text-text-secondary">{log.actor?.email || log.metadata?.attempted_email || "system"}</div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${color}`}>
@@ -194,8 +198,8 @@ export default function AuditLogsPage() {
                           {label}
                         </span>
                       </td>
-                      <td className="px-6 py-2 text-sm text-foreground max-w-md truncate" title={formatAuditDetails(log.action, log.metadata)}>
-                        {formatAuditDetails(log.action, log.metadata)}
+                      <td className="px-6 py-2 text-sm text-foreground max-w-md truncate" title={formatAuditDetails(log.action, log.metadata, (log as any).status)}>
+                        {formatAuditDetails(log.action, log.metadata, (log as any).status)}
                       </td>
                     </tr>
                   );

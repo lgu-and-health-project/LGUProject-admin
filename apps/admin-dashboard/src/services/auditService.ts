@@ -8,6 +8,7 @@ export interface AuditLog {
     role: string;
   } | null;
   action: string;
+  status: string;
   metadata: any;
   createdAt: string;
 }
@@ -22,6 +23,7 @@ export const auditService = {
       id: log.adminAuditId,
       actor: log.actor ?? null,
       action: log.action,
+      status: log.status,
       metadata: log.metadata,
       createdAt: log.createdAt,
     }));

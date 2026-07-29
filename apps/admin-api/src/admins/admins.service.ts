@@ -95,15 +95,17 @@ export class AdminsService {
       BCRYPT_ROUNDS,
     );
 
+    const isRoot = inviter.role === AdminRole.ROOT_SUPERADMIN;
+
     const newAdmin = await this.prisma.superAdmins.create({
       data: {
         email: data.email,
         fullName: data.fullName,
         role: data.role ?? AdminRole.ADMIN,
-        status: AdminStatus.INVITED,
+        status: isRoot ? AdminStatus.INVITED : AdminStatus.PENDING_APPROVAL,
         passwordHash: placeholderHash,
-        inviteTokenHash,
-        inviteExpiresAt,
+        inviteTokenHash: isRoot ? inviteTokenHash : null,
+        inviteExpiresAt: isRoot ? inviteExpiresAt : null,
         appointedById: inviter.sub,
       },
       include: { appointedBy: { select: { fullName: true } } },
@@ -134,8 +136,49 @@ export class AdminsService {
       appointedByName: newAdmin.appointedBy?.fullName ?? null,
       // Plaintext token returned ONLY here, at creation time, so the caller
       // can relay/display it once. It is never retrievable again afterward.
-      inviteToken: inviteTokenPlain,
+      inviteToken: isRoot ? inviteTokenPlain : 'PENDING',
     };
+  }
+
+  async approveInvite(id: string, actor: JwtPayload) {
+    if (actor.role !== AdminRole.ROOT_SUPERADMIN) {
+      throw new ForbiddenException('Only root superadmins can approve invites');
+    }
+    const admin = await this.prisma.superAdmins.findUnique({
+      where: { superadminId: id },
+    });
+    if (!admin) throw new NotFoundException('Administrator not found');
+    if (admin.status !== AdminStatus.PENDING_APPROVAL) {
+      throw new BadRequestException('Administrator is not pending approval');
+    }
+
+    const inviteTokenPlain = crypto.randomBytes(32).toString('hex');
+    const inviteTokenHash = crypto
+      .createHash('sha256')
+      .update(inviteTokenPlain)
+      .digest('hex');
+
+    const inviteExpiresAt = new Date();
+    inviteExpiresAt.setDate(inviteExpiresAt.getDate() + INVITE_TTL_DAYS);
+
+    await this.prisma.superAdmins.update({
+      where: { superadminId: id },
+      data: {
+        status: AdminStatus.INVITED,
+        inviteTokenHash,
+        inviteExpiresAt,
+      },
+    });
+
+    await this.auditLogsService.logAction({
+      actorId: actor.sub,
+      action: AuditAction.invite_admin,
+      targetType: AuditTargetType.superadmin,
+      targetId: admin.superadminId,
+      metadata: { note: 'Approved invitation' },
+    });
+
+    return { inviteToken: inviteTokenPlain };
   }
 
   async acceptInvite(data: AcceptInviteDto) {

@@ -17,7 +17,7 @@ export class AdminRouter {
         return this.adminsService.findAll();
       }),
 
-      invite: this.trpc.rootOnlyProcedure
+      invite: this.trpc.protectedProcedure
         .input(
           z.object({
             email: z.string().email(),
@@ -58,6 +58,12 @@ export class AdminRouter {
         .input(z.object({ id: z.string().uuid() }))
         .mutation(({ input, ctx }) => {
           return this.adminsService.resendInvite(input.id, ctx.user);
+        }),
+
+      approveInvite: this.trpc.rootOnlyProcedure
+        .input(z.object({ id: z.string().uuid() }))
+        .mutation(({ input, ctx }) => {
+          return this.adminsService.approveInvite(input.id, ctx.user);
         }),
 
       update: this.trpc.protectedProcedure

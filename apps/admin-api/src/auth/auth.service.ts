@@ -34,7 +34,7 @@ export class AuthService {
 
     const isMatch = await bcrypt.compare(pass, admin.passwordHash);
     if (!isMatch) {
-      throw new UnauthorizedException('Incorrect password');
+      throw new UnauthorizedException('Invalid Credentials');
     }
 
     const { passwordHash: _pw, ...result } = admin;

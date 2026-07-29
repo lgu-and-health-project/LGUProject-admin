@@ -1,13 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsOptional,
+} from 'class-validator';
 
 export class RegisterCitizenDto {
-  @ApiProperty({ example: 'juan.cruz@gmail.com', description: 'The citizen email address' })
+  @ApiProperty({
+    example: 'juan.cruz@gmail.com',
+    description: 'The citizen email address',
+  })
   @IsEmail()
   @IsNotEmpty()
   email!: string;
 
-  @ApiProperty({ example: 'SecurePassword123!', description: 'The citizen password (min 8 characters)' })
+  @ApiProperty({
+    example: 'SecurePassword123!',
+    description: 'The citizen password (min 8 characters)',
+  })
   @IsString()
   @MinLength(8)
   @IsNotEmpty()
@@ -23,19 +35,29 @@ export class RegisterCitizenDto {
   @IsNotEmpty()
   lastName!: string;
 
-  @ApiProperty({ example: '+639123456789', required: false, description: 'Optional phone number' })
+  @ApiProperty({
+    example: '+639123456789',
+    required: false,
+    description: 'Optional phone number',
+  })
   @IsString()
   @IsOptional()
   phoneNumber?: string;
 }
 
 export class LoginCitizenDto {
-  @ApiProperty({ example: 'juan.cruz@gmail.com', description: 'The citizen email address' })
+  @ApiProperty({
+    example: 'juan.cruz@gmail.com',
+    description: 'The citizen email address',
+  })
   @IsEmail()
   @IsNotEmpty()
   email!: string;
 
-  @ApiProperty({ example: 'SecurePassword123!', description: 'The citizen password' })
+  @ApiProperty({
+    example: 'SecurePassword123!',
+    description: 'The citizen password',
+  })
   @IsString()
   @IsNotEmpty()
   password!: string;

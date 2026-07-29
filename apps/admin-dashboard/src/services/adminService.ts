@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 
-export type AdminStatus = "INVITED" | "ACTIVE" | "REVOKED";
+export type AdminStatus = "INVITED" | "PENDING_APPROVAL" | "ACTIVE" | "REVOKED";
 export type AdminRole = "ROOT_SUPERADMIN" | "ADMIN";
 
 export interface AdminUser {
@@ -72,6 +72,10 @@ export const adminService = {
 
   resendInvite: async (id: string): Promise<any> => {
     return trpc.admin.resendInvite.mutate({ id });
+  },
+
+  approveInvite: async (id: string): Promise<any> => {
+    return trpc.admin.approveInvite.mutate({ id });
   },
 
   updateAdmin: async (

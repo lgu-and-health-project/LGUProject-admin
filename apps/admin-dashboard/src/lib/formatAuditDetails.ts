@@ -1,4 +1,4 @@
-export function formatAuditDetails(action: string, metadata: any): string {
+export function formatAuditDetails(action: string, metadata: any, status?: string): string {
   const meta = metadata || {};
 
   switch (action) {
@@ -30,7 +30,10 @@ export function formatAuditDetails(action: string, metadata: any): string {
       return `Revoked admin ${meta.email || 'N/A'}`;
 
     case 'login':
-      return `Successful login`;
+      if (status === 'FAILURE') {
+        return `Failed login attempt for ${meta.attempted_email || 'unknown email'}`;
+      }
+      return `Successful login for ${meta.email || 'user'}`;
 
     case 'login_failed':
       return `Failed login attempt (Reason: ${meta.reason || 'Unknown'})`;
