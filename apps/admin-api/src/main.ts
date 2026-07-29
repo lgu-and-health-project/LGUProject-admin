@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import compression from 'compression';
 import * as dns from 'dns';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 dns.setDefaultResultOrder('ipv4first');
 
@@ -58,6 +59,15 @@ async function bootstrap() {
       createContext: trpcService.createContext,
     }),
   );
+
+  const config = new DocumentBuilder()
+    .setTitle('LGU Platform Admin API')
+    .setDescription('Central API for Superadmins, Tenants, and Citizens')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }

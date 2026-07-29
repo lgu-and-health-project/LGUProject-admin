@@ -9,6 +9,7 @@ import { AdminsModule } from './admins/admins.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { TrpcModule } from './trpc/trpc.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TrpcModule } from './trpc/trpc.module';
     AuditLogsModule,
     TenantsModule,
     TrpcModule,
+    UsersModule,
   ],
   providers: [
     AppService,

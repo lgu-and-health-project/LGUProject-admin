@@ -14,7 +14,9 @@ import { AuthService } from './auth.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { LoginDto } from './dto/login.dto';
 import { AuditAction, AuditStatus, AuditTargetType } from '@prisma/client';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Superadmins (Auth)')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -22,6 +24,7 @@ export class AuthController {
     private auditLogsService: AuditLogsService,
   ) {}
 
+  @ApiOperation({ summary: 'Superadmin login' })
   @Throttle({ auth: {} })
   @HttpCode(HttpStatus.OK)
   @Post('login')
@@ -75,13 +78,9 @@ export class AuthController {
         access_token,
       };
     } catch (err) {
-      // We don't have an actorId for a failed login (email may not even
-      // exist), so this is logged without one - metadata carries the
-      // attempted email instead for investigation purposes.
       if (err instanceof UnauthorizedException) {
         await this.auditLogsService
           .logAction({
-            // No actorId: the email may not belong to any real admin.
             action: AuditAction.login,
             status: AuditStatus.FAILURE,
             targetType: AuditTargetType.session,
@@ -89,12 +88,13 @@ export class AuthController {
             ipAddress,
             userAgent,
           })
-          .catch(() => undefined); // never let audit logging break the response
+          .catch(() => undefined);
       }
       throw err;
     }
   }
 
+  @ApiOperation({ summary: 'Refresh superadmin session token' })
   @Throttle({ auth: {} })
   @Post('refresh')
   async refresh(
@@ -130,6 +130,7 @@ export class AuthController {
     return { access_token, user: userData };
   }
 
+  @ApiOperation({ summary: 'Logout superadmin session' })
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.refresh_token as string | undefined;
