@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
-import { fetchApi } from "@/services/apiClient";
+import { auditService, AuditLog } from "@/services/auditService";
 import { formatAuditDetails } from "@/lib/formatAuditDetails";
 import {
   Search,
@@ -18,17 +18,7 @@ import {
   Loader2
 } from "lucide-react";
 
-interface AuditLog {
-  id: string;
-  actor: {
-    fullName: string;
-    email: string;
-    role: string;
-  };
-  action: string;
-  metadata: any;
-  createdAt: string;
-}
+
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -42,7 +32,7 @@ export default function AuditLogsPage() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const data = await fetchApi<AuditLog[]>("/audit-logs");
+      const data = await auditService.getAuditLogs();
       setLogs(data);
     } catch (e) {
       console.error("Failed to load audit logs", e);
@@ -58,21 +48,27 @@ export default function AuditLogsPage() {
   const getActionDetails = (action: string) => {
     switch (action) {
       case "invite_admin": return { label: "Invited Admin", icon: UserPlus, color: "text-blue-600 bg-blue-100 border-blue-200" };
-      case "accept_invite": return { label: "Account Setup", icon: Activity, color: "text-emerald-600 bg-emerald-100 border-emerald-200" };
-      case "approve_admin": return { label: "Approved Admin", icon: UserCheck, color: "text-emerald-600 bg-emerald-100 border-emerald-200" };
-      case "reject_admin": return { label: "Rejected Request", icon: UserX, color: "text-red-600 bg-red-100 border-red-200" };
+      case "accept_invite": return { label: "Account Setup", icon: UserCheck, color: "text-emerald-600 bg-emerald-100 border-emerald-200" };
+      case "login": return { label: "User Login", icon: Activity, color: "text-indigo-600 bg-indigo-100 border-indigo-200" };
       case "delete_admin": return { label: "Deleted Admin", icon: UserMinus, color: "text-red-600 bg-red-100 border-red-200" };
+      case "revoke_admin": return { label: "Revoked Admin", icon: UserX, color: "text-red-600 bg-red-100 border-red-200" };
       case "register_tenant": return { label: "Registered Tenant", icon: Building2, color: "text-purple-600 bg-purple-100 border-purple-200" };
       case "suspend_tenant": return { label: "Suspended Tenant", icon: Ban, color: "text-orange-600 bg-orange-100 border-orange-200" };
-      default: return { label: action, icon: Activity, color: "text-gray-600 bg-gray-100 border-gray-200" };
+      case "activate_tenant": return { label: "Activated Tenant", icon: Activity, color: "text-emerald-600 bg-emerald-100 border-emerald-200" };
+      case "delete_tenant": return { label: "Deleted Tenant", icon: Ban, color: "text-red-600 bg-red-100 border-red-200" };
+      case "reissue_license": return { label: "Reissued License", icon: Activity, color: "text-blue-600 bg-blue-100 border-blue-200" };
+      case "revoke_license": return { label: "Revoked License", icon: Ban, color: "text-red-600 bg-red-100 border-red-200" };
+      default: return { label: action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '), icon: Activity, color: "text-gray-600 bg-gray-100 border-gray-200" };
     }
   };
 
   const filteredLogs = logs.filter(log => {
+    if (log.action === "sync_psgc") return false;
+
     const detailsText = formatAuditDetails(log.action, log.metadata);
     const matchesSearch =
-      log.actor.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.actor.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.actor?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (log.actor?.email.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
       detailsText.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = filterAction === "ALL" || log.action === filterAction;
@@ -80,11 +76,17 @@ export default function AuditLogsPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const paginatedLogs = filteredLogs.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -183,8 +185,8 @@ export default function AuditLogsPage() {
                         <div className="text-xs opacity-70">{format(new Date(log.createdAt), "h:mm:ss a")}</div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap">
-                        <div className="text-sm font-medium text-foreground">{log.actor.fullName}</div>
-                        <div className="text-xs text-text-secondary">{log.actor.email}</div>
+                        <div className="text-sm font-medium text-foreground">{log.actor?.fullName || "System"}</div>
+                        <div className="text-xs text-text-secondary">{log.actor?.email || "system"}</div>
                       </td>
                       <td className="px-6 py-2 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${color}`}>
@@ -228,7 +230,7 @@ export default function AuditLogsPage() {
               </button>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
+                disabled={currentPage >= totalPages || totalPages === 0}
                 className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
               >
                 Next
