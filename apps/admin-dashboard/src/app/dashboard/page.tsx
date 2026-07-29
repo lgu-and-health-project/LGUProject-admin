@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchApi } from "@/services/apiClient";
+import { tenantService } from "@/services/tenantService";
 import { Building2, Activity, Clock, BarChart2 } from "lucide-react";
 
 export default function Dashboard() {
@@ -15,7 +15,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const tenants = await fetchApi<any[]>("/tenants");
+        const tenants = await tenantService.getTenants();
         setStats({
           total: tenants.length,
           active: tenants.filter(t => t.status === "active").length,

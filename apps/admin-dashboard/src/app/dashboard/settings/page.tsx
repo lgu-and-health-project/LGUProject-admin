@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchApi } from "@/services/apiClient";
+import { adminService } from "@/services/adminService";
 import { authService } from "@/services/auth";
 import { useRouter } from "next/navigation";
 import { Loader2, Save, Trash2, ShieldCheck, User } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import toast from "react-hot-toast";
+import { PsgcSyncSection } from "./PsgcSyncSection";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function SettingsPage() {
         setUserId(currentUser.sub);
 
         // Fetch our own profile from /admins by filtering
-        const allAdmins = await fetchApi<any[]>("/admins");
+        const allAdmins = await adminService.getAdmins();
         const me = allAdmins.find(a => a.id === currentUser.sub);
         if (me) {
           setFormData(prev => ({
@@ -66,10 +67,7 @@ export default function SettingsPage() {
         updatePayload.password = formData.password;
       }
 
-      await fetchApi(`/admins/${userId}`, {
-        method: "PUT",
-        body: JSON.stringify(updatePayload),
-      });
+      await adminService.updateAdmin(userId, updatePayload);
 
       toast.success("Profile updated successfully!");
       setFormData(prev => ({ ...prev, password: "" })); // clear password field
@@ -82,7 +80,7 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     try {
-      await fetchApi(`/admins/${userId}`, { method: "DELETE" });
+      await adminService.deleteAdmin(userId);
       authService.logout();
       router.push("/login");
     } catch (e: any) {
@@ -164,6 +162,10 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
+
+      {userRole === "ROOT_SUPERADMIN" && (
+        <PsgcSyncSection />
+      )}
 
       {userRole !== "ROOT_SUPERADMIN" && (
         <div className="bg-red-50 border border-red-200 rounded-2xl shadow-sm overflow-hidden p-6">

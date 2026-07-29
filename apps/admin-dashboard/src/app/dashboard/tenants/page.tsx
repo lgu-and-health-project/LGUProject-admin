@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import Fuse from "fuse.js";
 import { format } from "date-fns";
-import { fetchApi } from "@/services/apiClient";
+import { tenantService, Tenant } from "@/services/tenantService";
+import { psgcService, PsgcOption } from "@/services/psgcService";
 import {
   Building2,
   Plus,
@@ -23,18 +24,7 @@ import {
 import { ConfirmModal } from "@/components/ConfirmModal";
 import toast from "react-hot-toast";
 
-interface Tenant {
-  id: string;
-  psgcCode: string;
-  name: string;
-  level: string;
-  status: string;
-  registrationKey?: string;
-  sysadminEmail?: string;
-  createdAt: string;
-}
 
-const psgcCache: Record<string, any[]> = {};
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -50,8 +40,8 @@ export default function TenantsPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    fetch('https://psgc.gitlab.io/api/regions').then(r=>r.json()).then(setRegionsData).catch(()=>{});
-    fetch('https://psgc.gitlab.io/api/provinces').then(r=>r.json()).then(setProvincesData).catch(()=>{});
+    psgcService.getRegions().then(regions => setRegionsData(regions.map(r => ({ code: r.code, name: r.name, regionName: r.name })))).catch(()=>{});
+    psgcService.getProvinces().then(provinces => setProvincesData(provinces.map(p => ({ code: p.code, name: p.name })))).catch(()=>{});
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,7 +72,7 @@ export default function TenantsPage() {
     sysadminEmail: "",
   });
 
-  const [psgcOptions, setPsgcOptions] = useState<any[]>([]);
+  const [psgcOptions, setPsgcOptions] = useState<PsgcOption[]>([]);
   const [psgcLoading, setPsgcLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -118,104 +108,8 @@ export default function TenantsPage() {
     const fetchPsgc = async () => {
       setPsgcLoading(true);
       try {
-        if (psgcCache['all']) {
-          if (isMounted) setPsgcOptions(psgcCache['all']);
-        } else {
-          const fetchEndpoint = async (endpoint: string) => {
-            try {
-              const res = await fetch(`https://psgc.gitlab.io/api/${endpoint}`);
-              if (!res.ok) throw new Error('Primary API failed');
-              return await res.json();
-            } catch (err) {
-              console.warn(`Primary API failed for ${endpoint}, trying fallback...`, err);
-              try {
-                const res = await fetch(`https://psgc.cloud/api/${endpoint}`);
-                if (!res.ok) throw new Error('Fallback API failed');
-                const data = await res.json();
-                return data.map((item: any) => ({
-                  ...item,
-                  regionName: item.name,
-                  isCity: item.type === 'City' || item.type === 'HUC' || item.type === 'ICC' || item.type === 'CC',
-                  provinceCode: item.code ? item.code.substring(0, 4) + '000000' : undefined,
-                  regionCode: item.code ? item.code.substring(0, 2) + '00000000' : undefined,
-                }));
-              } catch (fallbackErr) {
-                console.error(`Both APIs failed for ${endpoint}`, fallbackErr);
-                return [];
-              }
-            }
-          };
-
-          const [regions, provinces, cms, barangays] = await Promise.all([
-            fetchEndpoint('regions'),
-            fetchEndpoint('provinces'),
-            fetchEndpoint('cities-municipalities'),
-            fetchEndpoint('barangays')
-          ]);
-
-          const regionMap: Record<string, string> = regions.reduce((acc: any, r: any) => ({ ...acc, [r.code]: r.regionName || r.name }), {});
-          const provinceMap: Record<string, string> = provinces.reduce((acc: any, p: any) => ({ ...acc, [p.code]: p.name }), {});
-          const cmMap: Record<string, string> = cms.reduce((acc: any, c: any) => ({ ...acc, [c.code]: c.name }), {});
-
-          const formattedRegions = regions.map((r: any) => ({
-            code: r.code,
-            name: r.name,
-            level: 'region',
-            subtext: 'Region'
-          }));
-
-          const formattedProvinces = provinces.map((p: any) => ({
-            code: p.code,
-            name: p.name,
-            level: 'province',
-            subtext: `Province, ${regionMap[p.regionCode] || ''}`
-          }));
-
-          const formattedCms = cms.map((c: any) => {
-            const type = c.isCity ? 'City' : 'Municipality';
-            const provName = provinceMap[c.provinceCode] ? `${provinceMap[c.provinceCode]}, ` : '';
-            let lguLevel = 'municipality';
-            
-            // PSGC API often drops city classification. Fallback to known HUCs/ICCs.
-            const hucs = [
-              "angeles", "bacolod", "baguio", "butuan", "cagayan de oro", "caloocan", "cebu", "davao", 
-              "general santos", "iligan", "iloilo", "lapu-lapu", "las piñas", "lucena", "makati", 
-              "malabon", "mandaluyong", "mandaue", "manila", "marikina", "muntinlupa", "navotas", 
-              "olongapo", "parañaque", "pasay", "pasig", "puerto princesa", "quezon", "san juan", 
-              "tacloban", "taguig", "valenzuela", "zamboanga"
-            ];
-            const iccs = ["cotabato", "dagupan", "naga", "ormoc", "santiago"];
-
-            const isHuc = c.type === 'HUC' || (c.isCity && hucs.some(h => c.name.toLowerCase().includes(h)));
-            const isIcc = c.type === 'ICC' || (c.isCity && iccs.some(i => c.name.toLowerCase().includes(i)));
-
-            if (isHuc) lguLevel = 'city_huc';
-            else if (isIcc) lguLevel = 'city_icc';
-            else if (c.isCity) lguLevel = 'city_component';
-            
-            return {
-              code: c.code,
-              name: c.name,
-              level: lguLevel,
-              subtext: `${type}, ${provName}${regionMap[c.regionCode] || ''}`
-            };
-          });
-
-          const formattedBarangays = barangays.map((b: any) => {
-            const cmName = b.municipalityCode ? cmMap[b.municipalityCode] : b.cityCode ? cmMap[b.cityCode] : '';
-            const provName = provinceMap[b.provinceCode] ? `${provinceMap[b.provinceCode]}, ` : '';
-            return {
-              code: b.code,
-              name: b.name,
-              level: 'barangay',
-              subtext: `Barangay, ${cmName ? cmName + ', ' : ''}${provName}${regionMap[b.regionCode] || ''}`
-            };
-          });
-
-          const combined = [...formattedRegions, ...formattedProvinces, ...formattedCms, ...formattedBarangays];
-          psgcCache['all'] = combined;
-          if (isMounted) setPsgcOptions(combined);
-        }
+        const options = await psgcService.getAllLocations();
+        if (isMounted) setPsgcOptions(options);
       } catch (err) {
         console.error("Failed to fetch PSGC data", err);
         if (isMounted) setPsgcOptions([]);
@@ -276,7 +170,7 @@ export default function TenantsPage() {
   const loadTenants = async () => {
     setLoading(true);
     try {
-      const data = await fetchApi<Tenant[]>("/tenants");
+      const data = await tenantService.getTenants();
       setTenants(data);
     } catch (e) {
       console.error("Failed to load tenants", e);
@@ -289,7 +183,7 @@ export default function TenantsPage() {
     loadTenants();
 
     const intervalId = setInterval(() => {
-      fetchApi<Tenant[]>("/tenants")
+      tenantService.getTenants()
         .then((data) => {
           setTenants((prev) =>
             JSON.stringify(prev) !== JSON.stringify(data) ? data : prev,
@@ -312,9 +206,9 @@ export default function TenantsPage() {
 
     setFormLoading(true);
     try {
-      const response = await fetchApi<Tenant>("/tenants", {
-        method: "POST",
-        body: JSON.stringify(formData),
+      const response = await tenantService.createTenant({
+        psgcCode: formData.psgcCode,
+        sysadminEmail: formData.sysadminEmail,
       });
       setIsModalOpen(false);
       setFormData({
@@ -351,13 +245,13 @@ export default function TenantsPage() {
     const { idToSuspend, action } = confirmState;
     try {
       if (action === 'suspend') {
-        await fetchApi(`/tenants/${idToSuspend}/suspend`, { method: "PUT" });
+        await tenantService.suspendTenant(idToSuspend);
         toast.success("Tenant suspended successfully!");
       } else if (action === 'activate') {
-        await fetchApi(`/tenants/${idToSuspend}/activate`, { method: "PUT" });
+        await tenantService.activateTenant(idToSuspend);
         toast.success("Tenant reactivated successfully!");
       } else if (action === 'delete') {
-        await fetchApi(`/tenants/${idToSuspend}`, { method: "DELETE" });
+        await tenantService.deleteTenant(idToSuspend);
         toast.success("Tenant permanently deleted!");
       }
       setConfirmState({ isOpen: false, idToSuspend: null, action: null });

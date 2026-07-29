@@ -163,19 +163,19 @@ export default function AdministratorsPage() {
 
   const getStatusBadge = (status: AdminStatus) => {
     switch (status) {
-      case "active":
+      case "ACTIVE":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
             Active
           </span>
         );
-      case "invited":
+      case "INVITED":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
             Invited
           </span>
         );
-      case "revoked":
+      case "REVOKED":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
             Revoked
@@ -372,12 +372,12 @@ export default function AdministratorsPage() {
                       )}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
-                      {admin.status === "active"
+                      {admin.status === "ACTIVE"
                         ? new Date(admin.createdAt).toLocaleDateString()
                         : "—"}
                     </td>
                     <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
-                      {admin.status === "invited" ? (
+                      {admin.status === "INVITED" ? (
                         <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           {admin.inviteToken && (
                             <button
@@ -405,7 +405,7 @@ export default function AdministratorsPage() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-                      ) : admin.status === "revoked" ? (
+                      ) : admin.status === "REVOKED" ? (
                         <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleDeleteAdminClick(admin.id)}
