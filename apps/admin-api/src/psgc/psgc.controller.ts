@@ -38,11 +38,11 @@ export class PsgcController {
   @Post('sync')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AdminRole.ROOT_SUPERADMIN)
-  async sync(@Req() req: AuthenticatedRequest) {
+  async sync(@Req() req: AuthenticatedRequest, @Query('force') force?: string) {
     this.logger.log(`PSGC bulk sync triggered by ${req.user.email}`);
 
     try {
-      const syncId = await this.psgcService.startSync(req.user.sub);
+      const syncId = await this.psgcService.startSync(req.user.sub, force === 'true');
 
       await this.auditLogsService.logAction({
         actorId: req.user.sub,

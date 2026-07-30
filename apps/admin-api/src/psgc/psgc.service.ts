@@ -232,7 +232,7 @@ export class PsgcService {
 
   // ─── Bulk sync ──────────────────────────────────────────────────────
 
-  async startSync(actorId: string): Promise<string> {
+  async startSync(actorId: string, force = false): Promise<string> {
     checkEnvOnce();
     const psgcVersion = getEnv('PSGC_VERSION', 'Q2_2024');
 
@@ -256,7 +256,7 @@ export class PsgcService {
       data: { psgcVersion, status: 'IN_PROGRESS' },
     });
 
-    this.runSync(log.syncId, actorId).catch((err) => {
+    this.runSync(log.syncId, actorId, force).catch((err) => {
       this.logger.error(`Background sync failed: ${(err as Error).message}`);
     });
 
@@ -283,7 +283,7 @@ export class PsgcService {
     return { message: 'Sync cancellation requested.' };
   }
 
-  private async runSync(syncId: string, _actorId: string) {
+  private async runSync(syncId: string, _actorId: string, force: boolean) {
     const psgcVersion = getEnv('PSGC_VERSION', 'Q2_2024');
     let total = 0;
     try {
@@ -301,7 +301,7 @@ export class PsgcService {
         });
         const estimate = ESTIMATED_TOTALS[level];
 
-        if (alreadyHave >= estimate * 0.98) {
+        if (!force && alreadyHave >= estimate * 0.98) {
           this.logger.log(
             `Skipping ${level} - already have ${alreadyHave}/${estimate} locally for ${psgcVersion}.`,
           );
@@ -412,20 +412,24 @@ export class PsgcService {
    * line, which is exactly what looked like a stall.
    */
   private async upsertFromPsa(record: PsaApiRecord): Promise<PsgcLocations> {
-    const existing = await this.prisma.psgcLocations.findUnique({
-      where: { code: record.psgc_code },
-    });
-    if (existing) return existing;
+    const fixedAreaName = this.fixEncoding(record.area_name);
+    const normalizedLevel = this.normalizeLevel(record.geographic_level);
+    const normalizedCityClass = this.normalizeCityClass(record.city_class) ?? undefined;
 
-    return this.prisma.psgcLocations.create({
-      data: {
+    return this.prisma.psgcLocations.upsert({
+      where: { code: record.psgc_code },
+      update: {
+        areaName: fixedAreaName,
+        level: normalizedLevel,
+        cityClassification: normalizedCityClass,
+      },
+      create: {
         code: record.psgc_code,
         psgcVersion: record.version || getEnv('PSGC_VERSION', 'Q2_2024'),
-        areaName: this.fixEncoding(record.area_name),
-        level: this.normalizeLevel(record.geographic_level),
-        cityClassification:
-          this.normalizeCityClass(record.city_class) ?? undefined,
-        parentId: undefined, // linked in linkOrphanedParents(), not here
+        areaName: fixedAreaName,
+        level: normalizedLevel,
+        cityClassification: normalizedCityClass,
+        parentId: undefined, // linked in linkOrphanedParents()
       },
     });
   }
