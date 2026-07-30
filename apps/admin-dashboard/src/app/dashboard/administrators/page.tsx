@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Fuse from "fuse.js";
 import {
   Plus,
   Search,
@@ -219,11 +220,15 @@ export default function AdministratorsPage() {
     return <Shield className="w-4 h-4 text-text-secondary mr-1.5" />;
   };
 
-  const filteredAdmins = admins.filter(
-    (a) =>
-      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.email.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const fuse = useMemo(() => new Fuse(admins, {
+    keys: ["fullName", "email"],
+    threshold: 0.3,
+  }), [admins]);
+
+  const filteredAdmins = useMemo(() => {
+    if (!searchQuery) return admins;
+    return fuse.search(searchQuery).map(r => r.item);
+  }, [searchQuery, admins, fuse]);
 
   const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
   const paginatedAdmins = filteredAdmins.slice(

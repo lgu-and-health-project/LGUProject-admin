@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Fuse from "fuse.js";
 import { format } from "date-fns";
 import { auditService, AuditLog } from "@/services/auditService";
 import { formatAuditDetails } from "@/lib/formatAuditDetails";
@@ -62,23 +63,30 @@ export default function AuditLogsPage() {
     }
   };
 
-  const filteredLogs = logs.filter(log => {
-    if (log.action === "sync_psgc") return false;
+  const fuse = useMemo(() => new Fuse(logs.filter(log => log.action !== "sync_psgc"), {
+    keys: [
+      "actor.fullName",
+      "actor.email",
+      "metadata.attempted_email",
+      "metadata.email",
+      {
+        name: "detailsText",
+        getFn: (log) => formatAuditDetails(log.action, log.metadata, (log as any).status)
+      }
+    ],
+    threshold: 0.3,
+  }), [logs]);
 
-    if (log.action === "sync_psgc") return false;
-
-    const detailsText = formatAuditDetails(log.action, log.metadata, (log as any).status);
-    const matchesSearch =
-      (log.actor?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.actor?.email.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.metadata?.attempted_email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.metadata?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      detailsText.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesFilter = filterAction === "ALL" || log.action === filterAction;
-
-    return matchesSearch && matchesFilter;
-  });
+  const filteredLogs = useMemo(() => {
+    let result = logs.filter(log => log.action !== "sync_psgc");
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+    if (filterAction !== "ALL") {
+      result = result.filter(log => log.action === filterAction);
+    }
+    return result;
+  }, [searchQuery, filterAction, logs, fuse]);
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const paginatedLogs = filteredLogs.slice(

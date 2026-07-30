@@ -239,24 +239,33 @@ export default function TenantsPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const filteredTenants = tenants.filter((t) => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || (t.psgcCode && t.psgcCode.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesLevel = selectedLevels.includes(t.level);
-    
-    let matchesLocation = true;
-    if (t.psgcCode) {
-      if (locationProvince) {
-        const provPrefix = locationProvince.replace(/0+$/, '');
-        matchesLocation = t.psgcCode.startsWith(provPrefix);
-      } else if (locationRegion) {
-        const regPrefix = locationRegion.replace(/0+$/, '');
-        matchesLocation = t.psgcCode.startsWith(regPrefix);
-      }
-    }
+  const fuse = useMemo(() => new Fuse(tenants, {
+    keys: ["name", "psgcCode"],
+    threshold: 0.3,
+  }), [tenants]);
 
-    return matchesSearch && matchesLevel && matchesLocation;
-  });
+  const filteredTenants = useMemo(() => {
+    let result = tenants;
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+    return result.filter(t => {
+      const matchesLevel = selectedLevels.includes(t.level);
+      
+      let matchesLocation = true;
+      if (t.psgcCode) {
+        if (locationProvince) {
+          const provPrefix = locationProvince.replace(/0+$/, '');
+          matchesLocation = t.psgcCode.startsWith(provPrefix);
+        } else if (locationRegion) {
+          const regPrefix = locationRegion.replace(/0+$/, '');
+          matchesLocation = t.psgcCode.startsWith(regPrefix);
+        }
+      }
+
+      return matchesLevel && matchesLocation;
+    });
+  }, [searchQuery, selectedLevels, locationRegion, locationProvince, tenants, fuse]);
 
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
   const paginatedTenants = filteredTenants.slice(

@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PsgcLocations } from '@prisma/client';
+import Fuse from 'fuse.js';
 
 // Shape returned by the official PSA PSGC API (classification.psa.gov.ph).
 interface PsaApiRecord {
@@ -104,6 +105,9 @@ export class PsgcService {
   private readonly logger = new Logger(PsgcService.name);
   private listCache = new Map<string, PsaApiRecord[]>();
   private cancelFlags = new Set<string>();
+  
+  private fuseCache: Fuse<any> | null = null;
+  private isBuildingFuseCache = false;
 
   constructor(private prisma: PrismaService) {}
 
@@ -136,12 +140,65 @@ export class PsgcService {
     });
   }
 
+  private async buildFuzzyCache() {
+    if (this.fuseCache || this.isBuildingFuseCache) return;
+    this.isBuildingFuseCache = true;
+    try {
+      this.logger.log('Building PSGC fuzzy search cache in memory...');
+      const records = await this.prisma.psgcLocations.findMany();
+      const map = new Map<string, any>();
+      for (const r of records) map.set(r.psgcLocationId, r);
+      
+      const docs = records.map(r => {
+        let address = r.areaName;
+        let curr = r;
+        while (curr.parentId) {
+          curr = map.get(curr.parentId);
+          if (!curr) break;
+          if (curr.level !== 'region') address += ', ' + curr.areaName;
+        }
+        return { ...r, fullAddress: address };
+      });
+      
+      this.fuseCache = new Fuse(docs, { 
+        keys: ['fullAddress'],
+        threshold: 0.3,
+        ignoreLocation: true,
+      });
+      this.logger.log(`Fuzzy cache built with ${docs.length} locations.`);
+    } catch (err) {
+      this.logger.error('Failed to build fuzzy cache', err);
+    } finally {
+      this.isBuildingFuseCache = false;
+    }
+  }
+
   async searchByName(query: string): Promise<PsgcLocations[]> {
     if (!query || query.trim().length < 2) return [];
-    return this.prisma.psgcLocations.findMany({
-      where: { areaName: { contains: query.trim(), mode: 'insensitive' } },
-      orderBy: { areaName: 'asc' },
-      take: 50,
+    
+    if (!this.fuseCache) {
+      // First search triggers the cache build, wait for it if not too long, 
+      // or we can just await it since it takes < 1 second.
+      await this.buildFuzzyCache();
+    }
+    
+    // If cache still isn't available for some reason, fallback to original query
+    if (!this.fuseCache) {
+      return this.prisma.psgcLocations.findMany({
+        where: { areaName: { contains: query.trim(), mode: 'insensitive' } },
+        orderBy: { areaName: 'asc' },
+        take: 50,
+        include: { parent: { include: { parent: { include: { parent: true } } } } },
+      });
+    }
+
+    const results = this.fuseCache.search(query.trim(), { limit: 50 });
+    const ids = results.map(r => r.item.psgcLocationId);
+    
+    if (ids.length === 0) return [];
+
+    const dbRecords = await this.prisma.psgcLocations.findMany({
+      where: { psgcLocationId: { in: ids } },
       include: {
         parent: {
           include: {
@@ -154,6 +211,11 @@ export class PsgcService {
         },
       },
     });
+
+    // Return in the exact order scored by Fuse.js
+    return ids
+      .map(id => dbRecords.find(r => r.psgcLocationId === id))
+      .filter((r): r is PsgcLocations => r !== undefined);
   }
 
   // ─── Bulk sync ──────────────────────────────────────────────────────
