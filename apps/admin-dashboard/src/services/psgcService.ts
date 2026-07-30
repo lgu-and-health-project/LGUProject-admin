@@ -254,7 +254,8 @@ function buildAddress(raw: any): string {
   const parts: string[] = [];
   let current = raw.parent;
   while (current) {
-    if (current.level !== "region") {
+    // Stop at region, and prevent any duplicate names in the hierarchy
+    if (current.level !== "region" && !parts.includes(current.areaName)) {
       parts.push(current.areaName);
     }
     current = current.parent;
