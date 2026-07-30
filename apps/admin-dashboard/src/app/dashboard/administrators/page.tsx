@@ -5,6 +5,7 @@ import Fuse from "fuse.js";
 import {
   Plus,
   Search,
+  Filter,
   MoreVertical,
   Shield,
   ShieldAlert,
