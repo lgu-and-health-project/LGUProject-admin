@@ -8,14 +8,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { 
-  RegisterCitizenDto, 
-  LoginCitizenDto, 
-  SendOtpDto, 
-  InitialProfileDto, 
+import {
+  RegisterCitizenDto,
+  LoginCitizenDto,
+  SendOtpDto,
+  InitialProfileDto,
   SubmitIdVerificationDto,
   GoogleAuthDto,
-  ExtendedProfileDto
+  ExtendedProfileDto,
 } from './dto';
 import { IdentifierType, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -71,7 +71,7 @@ export class UsersService {
         const transporter = nodemailer.createTransport({
           host: this.configService.get<string>('SMTP_HOST'),
           port: this.configService.get<number>('SMTP_PORT'),
-          secure: false, // true for 465, false for other ports
+          secure: Number(this.configService.get<number>('SMTP_PORT')) === 465,
           auth: {
             user: this.configService.get<string>('SMTP_USER'),
             pass: this.configService.get<string>('SMTP_PASS'),
@@ -91,10 +91,13 @@ export class UsersService {
             validityMinutes: OTP_TTL_MINUTES,
           }),
         });
-        
+
         this.logger.log(`OTP email sent successfully to ${data.identifier}`);
       } catch (error) {
-        this.logger.error(`Failed to send OTP email to ${data.identifier}`, error);
+        this.logger.error(
+          `Failed to send OTP email to ${data.identifier}`,
+          error,
+        );
       }
     }
 
@@ -174,14 +177,21 @@ export class UsersService {
     });
 
     // Use generic error messages to prevent username enumeration
-    if (!identifierRecord || !identifierRecord.user || identifierRecord.user.credentials.length === 0) {
+    if (
+      !identifierRecord ||
+      !identifierRecord.user ||
+      identifierRecord.user.credentials.length === 0
+    ) {
       throw new UnauthorizedException('Invalid credentials provided');
     }
 
     const user = identifierRecord.user;
     const credential = user.credentials[0];
 
-    const isValidPassword = await bcrypt.compare(data.password, credential.passwordHash);
+    const isValidPassword = await bcrypt.compare(
+      data.password,
+      credential.passwordHash,
+    );
     if (!isValidPassword) {
       throw new UnauthorizedException('Invalid credentials provided');
     }
@@ -245,7 +255,10 @@ export class UsersService {
         data: { status: UserStatus.UNVERIFIED },
       });
 
-      return { message: 'Initial profile updated successfully', profileId: profile.profileId };
+      return {
+        message: 'Initial profile updated successfully',
+        profileId: profile.profileId,
+      };
     });
   }
 
@@ -259,13 +272,18 @@ export class UsersService {
         status: 'PENDING',
       },
     });
-    
-    return { message: 'ID verification submitted successfully', verificationId: verification.verificationId };
+
+    return {
+      message: 'ID verification submitted successfully',
+      verificationId: verification.verificationId,
+    };
   }
 
   async updateExtendedProfile(userId: string, data: ExtendedProfileDto) {
     // TODO: implement extended profile update (saving occupation, civil status, etc.)
-    throw new BadRequestException('Extended profile update is not fully implemented yet');
+    throw new BadRequestException(
+      'Extended profile update is not fully implemented yet',
+    );
   }
 
   async getProfile(userId: string) {
@@ -273,20 +291,20 @@ export class UsersService {
       where: { userId },
       include: {
         identifiers: {
-          select: { identifierType: true, identifierValue: true }
+          select: { identifierType: true, identifierValue: true },
         },
         profiles: {
           include: {
             addresses: {
-              include: { address: true }
-            }
-          }
+              include: { address: true },
+            },
+          },
         },
         verifications: {
           orderBy: { createdAt: 'desc' },
-          take: 1
-        }
-      }
+          take: 1,
+        },
+      },
     });
 
     if (!user) {
