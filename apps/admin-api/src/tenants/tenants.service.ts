@@ -178,17 +178,11 @@ export class TenantsService {
     const tenant = await this.getActiveTenantOrThrow(id);
 
     const result = await this.prisma.$transaction([
-      this.prisma.licenses.updateMany({
+      this.prisma.licenses.deleteMany({
         where: { tenantId: id },
-        data: { status: LicenseStatus.revoked },
       }),
-      this.prisma.lguTenants.update({
+      this.prisma.lguTenants.delete({
         where: { tenantId: id },
-        data: { 
-          status: TenantStatus.deleted, 
-          deletedAt: new Date(),
-          sysadminEmail: `deleted_\${Date.now()}_\${tenant.sysadminEmail}`,
-        },
       }),
     ]);
 

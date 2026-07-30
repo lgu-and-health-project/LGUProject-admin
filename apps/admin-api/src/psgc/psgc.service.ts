@@ -142,6 +142,17 @@ export class PsgcService {
       where: { areaName: { contains: query.trim(), mode: 'insensitive' } },
       orderBy: { areaName: 'asc' },
       take: 50,
+      include: {
+        parent: {
+          include: {
+            parent: {
+              include: {
+                parent: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 
