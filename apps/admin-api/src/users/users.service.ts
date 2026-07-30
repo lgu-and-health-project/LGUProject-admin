@@ -77,7 +77,7 @@ export class UsersService {
             user: this.configService.get<string>('SMTP_USER'),
             pass: this.configService.get<string>('SMTP_PASS'),
           },
-        });
+        } as any);
 
         await transporter.sendMail({
           from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,

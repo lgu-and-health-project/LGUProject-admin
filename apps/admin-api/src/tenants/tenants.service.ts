@@ -139,12 +139,13 @@ export class TenantsService {
         host: this.configService.get<string>('SMTP_HOST'),
         port: this.configService.get<number>('SMTP_PORT'),
         secure: Number(this.configService.get("SMTP_PORT")) === 465,
+        // @ts-ignore
         family: 4,
         auth: {
           user: this.configService.get<string>('SMTP_USER'),
           pass: this.configService.get<string>('SMTP_PASS'),
         },
-      });
+      } as any);
 
       await transporter.sendMail({
         from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
