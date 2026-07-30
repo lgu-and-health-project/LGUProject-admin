@@ -177,10 +177,20 @@ export class TenantsService {
   async deleteTenant(id: string, actor: JwtPayload) {
     const tenant = await this.getActiveTenantOrThrow(id);
 
-    const result = await this.prisma.lguTenants.update({
-      where: { tenantId: id },
-      data: { status: TenantStatus.deleted, deletedAt: new Date() },
-    });
+    const result = await this.prisma.$transaction([
+      this.prisma.licenses.updateMany({
+        where: { tenantId: id },
+        data: { status: LicenseStatus.revoked },
+      }),
+      this.prisma.lguTenants.update({
+        where: { tenantId: id },
+        data: { 
+          status: TenantStatus.deleted, 
+          deletedAt: new Date(),
+          sysadminEmail: `deleted_\${Date.now()}_\${tenant.sysadminEmail}`,
+        },
+      }),
+    ]);
 
     await this.auditLogsService.logAction({
       actorId: actor.sub,
@@ -190,7 +200,7 @@ export class TenantsService {
       metadata: { tenant_name: tenant.psgcLocation.areaName },
     });
 
-    return result;
+    return result[1];
   }
 
   private async getActiveTenantOrThrow(id: string) {
