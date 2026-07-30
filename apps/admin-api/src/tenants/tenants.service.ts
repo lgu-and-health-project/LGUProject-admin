@@ -105,6 +105,35 @@ export class TenantsService {
 
     const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
     
+    // Fetch the full hierarchy to build the proper organization name
+    const psgcHierarchy = await this.prisma.psgcLocations.findUnique({
+      where: { code: data.psgcCode },
+      include: {
+        parent: {
+          include: {
+            parent: {
+              include: {
+                parent: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let organizationName = psgcLocation.areaName;
+    if (psgcHierarchy) {
+      const parts: string[] = [];
+      let current: any = psgcHierarchy;
+      while (current) {
+        if (current.level !== 'region' && !parts.includes(current.areaName)) {
+          parts.push(current.areaName);
+        }
+        current = current.parent;
+      }
+      if (parts.length > 0) organizationName = parts.join(', ');
+    }
+    
     try {
       const transporter = nodemailer.createTransport({
         host: this.configService.get<string>('SMTP_HOST'),
@@ -123,6 +152,8 @@ export class TenantsService {
         text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
         html: getSysadminEmailTemplate({
           registrationKey,
+          setupLink,
+          organizationName,
         }),
       });
       
