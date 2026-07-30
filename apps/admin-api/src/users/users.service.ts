@@ -81,7 +81,12 @@ export class UsersService {
           to: data.identifier,
           subject: 'Your OTP Code - One City',
           text: `Your OTP code is ${code}. It expires in 5 minutes.`,
-          html: getOtpEmailTemplate(code),
+          html: getOtpEmailTemplate({
+            code,
+            appName: 'LGU Platform',
+            companyName: 'LGU Admin Team',
+            validityMinutes: 5,
+          }),
         });
         
         this.logger.log(`OTP email sent successfully to ${data.identifier}`);
