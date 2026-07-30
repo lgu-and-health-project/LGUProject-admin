@@ -453,8 +453,8 @@ export class PsgcService {
     });
 
     this.logger.log(`Linking parents for ${unlinked.length} records...`);
-    let linked = 0;
-    let fellBackToRegion = 0;
+    let linkedNormal = 0;
+    let linkedFallback = 0;
     let stillOrphaned = 0;
 
     for (const loc of unlinked) {
@@ -465,38 +465,51 @@ export class PsgcService {
         where: { code: naiveParentCode },
       });
 
-      if (parent) {
+      if (parent && parent.psgcLocationId !== loc.psgcLocationId) {
         await this.prisma.psgcLocations.update({
           where: { psgcLocationId: loc.psgcLocationId },
           data: { parentId: parent.psgcLocationId },
         });
-        linked++;
-        continue;
-      }
-
-      // Naive parent doesn't exist locally - fall back to the region.
-      // This is the HUC/ICC "province slot" case (e.g. Baguio-style codes).
-      const regionCode = loc.code.slice(0, 2) + '00000000';
-      const region = await this.prisma.psgcLocations.findUnique({
-        where: { code: regionCode },
-      });
-
-      if (region) {
-        await this.prisma.psgcLocations.update({
-          where: { psgcLocationId: loc.psgcLocationId },
-          data: { parentId: region.psgcLocationId },
-        });
-        fellBackToRegion++;
+        linkedNormal++;
       } else {
-        stillOrphaned++;
-        this.logger.warn(
-          `Could not link parent for ${loc.code} (${loc.areaName}) - no province or region match found.`,
-        );
+        // Try geographic province fallback for HUCs/ICCs
+        const geographicProvinceCode = this.getGeographicProvinceForHuc(loc.code);
+        if (geographicProvinceCode) {
+          parent = await this.prisma.psgcLocations.findUnique({
+            where: { code: geographicProvinceCode },
+          });
+          if (parent) {
+            await this.prisma.psgcLocations.update({
+              where: { psgcLocationId: loc.psgcLocationId },
+              data: { parentId: parent.psgcLocationId },
+            });
+            linkedFallback++;
+            continue;
+          }
+        }
+
+        // Finally, try region fallback for HUCs/ICCs without province mapping (e.g. NCR)
+        const regionCode = loc.code.slice(0, 2) + '00000000';
+        parent = await this.prisma.psgcLocations.findUnique({
+          where: { code: regionCode },
+        });
+        if (parent) {
+          await this.prisma.psgcLocations.update({
+            where: { psgcLocationId: loc.psgcLocationId },
+            data: { parentId: parent.psgcLocationId },
+          });
+          linkedFallback++;
+        } else {
+          stillOrphaned++;
+          this.logger.warn(
+            `Could not link parent for ${loc.code} (${loc.areaName}) - no province or region match found.`,
+          );
+        }
       }
     }
 
     this.logger.log(
-      `Parent linking done: ${linked} linked normally, ${fellBackToRegion} fell back to region (HUC/ICC-style codes), ${stillOrphaned} still unresolved.`,
+      `Parent linking done: ${linkedNormal} linked normally, ${linkedFallback} fell back (province map/region), ${stillOrphaned} still unresolved.`,
     );
   }
 
@@ -519,10 +532,38 @@ export class PsgcService {
     const normalized = this.normalizeLevel(level);
     if (normalized === 'barangay') return code.slice(0, 7) + '000';
     if (normalized === 'city' || normalized === 'municipality') {
-      return code.slice(0, 4) + '000000';
+      return code.slice(0, 5) + '00000';
     }
     if (normalized === 'province') return code.slice(0, 2) + '00000000';
     return null;
+  }
+
+  private getGeographicProvinceForHuc(cityCode: string): string | null {
+    const mapping: Record<string, string> = {
+      '0330100000': '0305400000', // Angeles -> Pampanga
+      '1830200000': '1804500000', // Bacolod -> Negros Occ
+      '1430300000': '1401100000', // Baguio -> Benguet
+      '1630400000': '1600200000', // Butuan -> Agusan del Norte
+      '1030500000': '1004300000', // Cagayan De Oro -> Misamis Or
+      '0730600000': '0702200000', // Cebu City -> Cebu
+      '1908703000': '1908700000', // Cotabato -> Maguindanao del Norte
+      '0105518000': '0105500000', // Dagupan -> Pangasinan
+      '1130700000': '1102400000', // Davao City -> Davao del Sur
+      '1230800000': '1206300000', // GenSan -> South Cotabato
+      '1030900000': '1003500000', // Iligan -> Lanao del Norte
+      '0631000000': '0603000000', // Iloilo City -> Iloilo
+      '0731100000': '0702200000', // Lapu-Lapu -> Cebu
+      '0431200000': '0405600000', // Lucena -> Quezon
+      '0731300000': '0702200000', // Mandaue -> Cebu
+      '0501724000': '0501700000', // Naga -> Camarines Sur
+      '0331400000': '0307100000', // Olongapo -> Zambales
+      '1731500000': '1705300000', // Puerto Princesa -> Palawan
+      '0203135000': '0203100000', // Santiago -> Isabela
+      '0831600000': '0803700000', // Tacloban -> Leyte
+      '0931700000': '0907300000', // Zamboanga City -> Zamboanga del Sur
+      '0803738000': '0803700000', // Ormoc -> Leyte
+    };
+    return mapping[cityCode] || null;
   }
 
   private singularLevel(endpointLevel: string): string {
