@@ -78,6 +78,7 @@ export default function AdministratorsPage() {
     return null;
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState("All Statuses");
 
   useEffect(() => {
     fetchAdmins();
@@ -229,9 +230,28 @@ export default function AdministratorsPage() {
   }), [admins]);
 
   const filteredAdmins = useMemo(() => {
-    if (!searchQuery) return admins;
-    return fuse.search(searchQuery).map(r => r.item);
-  }, [searchQuery, admins, fuse]);
+    let result = admins;
+
+    // Apply text search
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+
+    // Apply status filter
+    if (filterStatus !== "All Statuses") {
+      const statusMap: Record<string, string> = {
+        "Pending Approval": "PENDING_APPROVAL",
+        "Active": "ACTIVE",
+        "Invited": "INVITED"
+      };
+      const targetStatus = statusMap[filterStatus];
+      if (targetStatus) {
+        result = result.filter(admin => admin.status === targetStatus);
+      }
+    }
+
+    return result;
+  }, [searchQuery, filterStatus, admins, fuse]);
 
   const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
   const paginatedAdmins = filteredAdmins.slice(
@@ -241,7 +261,7 @@ export default function AdministratorsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, filterStatus]);
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
@@ -289,7 +309,8 @@ export default function AdministratorsPage() {
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
             <select
               className="block w-full pl-10 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
-              defaultValue="All Statuses"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="All Statuses">All Statuses</option>
               <option value="Pending Approval">Pending Approval</option>
