@@ -446,11 +446,18 @@ export class PsgcService {
       const naiveParentCode = this.deriveParentCode(loc.code, this.levelToPsaCode(loc.level));
       if (!naiveParentCode) continue;
 
-      const parent = await this.prisma.psgcLocations.findUnique({
-        where: { code: naiveParentCode },
-      });
+      let parent = await this.prisma.psgcLocations.findUnique({
+          where: { code: naiveParentCode },
+        });
 
-      if (parent) {
+        // HUC/ICC Override: Highly Urbanized Cities and Independent Component Cities
+        // are administratively independent from their geographic provinces. 
+        // We force them to bypass the province and link directly to the Region.
+        if (parent && (loc.cityClassification === 'HUC' || loc.cityClassification === 'ICC')) {
+          parent = null;
+        }
+
+        if (parent) {
         await this.prisma.psgcLocations.update({
           where: { psgcLocationId: loc.psgcLocationId },
           data: { parentId: parent.psgcLocationId },
