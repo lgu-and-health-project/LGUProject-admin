@@ -101,15 +101,28 @@ export default function TenantsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!isModalOpen) return;
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(formData.name);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [formData.name]);
+
+  useEffect(() => {
     let isMounted = true;
-    const fetchPsgc = async () => {
+
+    const fetchSearch = async () => {
+      if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
+        if (isMounted) setPsgcOptions([]);
+        return;
+      }
+
       setPsgcLoading(true);
       try {
-        const options = await psgcService.getAllLocations();
-        if (isMounted) setPsgcOptions(options);
+        const results = await psgcService.search(debouncedSearchQuery);
+        if (isMounted) setPsgcOptions(results);
       } catch (err) {
         console.error("Failed to fetch PSGC data", err);
         if (isMounted) setPsgcOptions([]);
@@ -118,54 +131,12 @@ export default function TenantsPage() {
       }
     };
 
-    fetchPsgc();
+    fetchSearch();
 
     return () => { isMounted = false; };
-  }, [isModalOpen]);
+  }, [debouncedSearchQuery]);
 
-  const fuse = useMemo(
-    () =>
-      new Fuse(psgcOptions, {
-        keys: [
-          { name: "name", weight: 2 },
-          { name: "subtext", weight: 1 }
-        ],
-        threshold: 0.3,
-        ignoreLocation: true,
-      }),
-    [psgcOptions],
-  );
-
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(formData.name);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(formData.name);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [formData.name]);
-  const searchResults = useMemo(() => {
-    if (!debouncedSearchQuery) return psgcOptions.slice(0, 50);
-
-    const lowerQuery = debouncedSearchQuery.toLowerCase();
-    
-    // FAST PATH: Native substring search (Takes ~5ms instead of 500ms)
-    const exactMatches = psgcOptions.filter(
-      (item) =>
-        item.name.toLowerCase().includes(lowerQuery) ||
-        (item.subtext && item.subtext.toLowerCase().includes(lowerQuery))
-    );
-
-    if (exactMatches.length > 0) {
-      return exactMatches.slice(0, 50);
-    }
-
-    // SLOW PATH: Fallback to fuzzy search only if no exact substring matches found (Typo tolerance)
-    return fuse
-      .search(debouncedSearchQuery)
-      .map((res) => res.item)
-      .slice(0, 50);
-  }, [debouncedSearchQuery, fuse, psgcOptions]);
+  const searchResults = psgcOptions;
 
   const loadTenants = async () => {
     setLoading(true);
