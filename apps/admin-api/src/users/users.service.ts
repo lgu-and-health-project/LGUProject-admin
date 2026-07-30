@@ -72,6 +72,7 @@ export class UsersService {
           host: this.configService.get<string>('SMTP_HOST'),
           port: this.configService.get<number>('SMTP_PORT'),
           secure: Number(this.configService.get<number>('SMTP_PORT')) === 465,
+          family: 4, // Force IPv4 to prevent Render IPv6 network unreachable errors
           auth: {
             user: this.configService.get<string>('SMTP_USER'),
             pass: this.configService.get<string>('SMTP_PASS'),
