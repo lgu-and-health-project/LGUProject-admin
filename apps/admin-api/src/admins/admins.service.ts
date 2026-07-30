@@ -10,6 +10,9 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { getInviteEmailTemplate } from '../templates/mails/invite.template';
 import {
   AdminStatus,
   AdminRole,
@@ -34,6 +37,7 @@ export class AdminsService {
   constructor(
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
+    private configService: ConfigService,
   ) {}
 
   async findAll() {
@@ -124,8 +128,32 @@ export class AdminsService {
     });
 
     const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
-    // TODO: replace with nodemailer send once the email service is wired up.
-    this.logger.log(`[No email service yet] Invite link: ${inviteLink}`);
+    
+    try {
+      const transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASS'),
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: data.email,
+        subject: 'You have been invited to One City LGU Platform',
+        text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
+        html: getInviteEmailTemplate({
+          inviteLink,
+        }),
+      });
+      
+      this.logger.log(`Invite email sent successfully to ${data.email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send invite email to ${data.email}`, error);
+    }
 
     return {
       superadminId: newAdmin.superadminId,
@@ -371,7 +399,32 @@ export class AdminsService {
     });
 
     const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
-    this.logger.log(`[No email service yet] Invite link: ${inviteLink}`);
+    
+    try {
+      const transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASS'),
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: admin.email,
+        subject: 'Reminder: You have been invited to One City LGU Platform',
+        text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
+        html: getInviteEmailTemplate({
+          inviteLink,
+        }),
+      });
+      
+      this.logger.log(`Invite reminder email sent successfully to ${admin.email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send invite reminder email to ${admin.email}`, error);
+    }
 
     return { success: true, message: 'Invitation resent successfully' };
   }

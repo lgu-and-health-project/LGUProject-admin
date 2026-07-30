@@ -8,6 +8,9 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { PsgcService } from '../psgc/psgc.service';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { getSysadminEmailTemplate } from '../templates/mails/sysadmin.template';
 import {
   TenantStatus,
   LicenseStatus,
@@ -25,6 +28,7 @@ export class TenantsService {
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
     private psgcService: PsgcService,
+    private configService: ConfigService,
   ) {}
 
   async findAll() {
@@ -100,10 +104,32 @@ export class TenantsService {
     });
 
     const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
-    // TODO: replace with nodemailer send once the email service is wired up.
-    this.logger.log(
-      `[No email service yet] Setup link for sysadmin (${data.sysadminEmail}): ${setupLink}`,
-    );
+    
+    try {
+      const transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASS'),
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: data.sysadminEmail,
+        subject: 'Your System Administrator Account has been created',
+        text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
+        html: getSysadminEmailTemplate({
+          registrationKey,
+        }),
+      });
+      
+      this.logger.log(`Sysadmin registration email sent successfully to ${data.sysadminEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send sysadmin email to ${data.sysadminEmail}`, error);
+    }
 
     return { ...tenant, registrationKey };
   }
