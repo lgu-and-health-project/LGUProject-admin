@@ -421,7 +421,7 @@ export class PsgcService {
       data: {
         code: record.psgc_code,
         psgcVersion: record.version || getEnv('PSGC_VERSION', 'Q2_2024'),
-        areaName: record.area_name,
+        areaName: this.fixEncoding(record.area_name),
         level: this.normalizeLevel(record.geographic_level),
         cityClassification:
           this.normalizeCityClass(record.city_class) ?? undefined,
@@ -458,17 +458,10 @@ export class PsgcService {
       if (!naiveParentCode) continue;
 
       let parent = await this.prisma.psgcLocations.findUnique({
-          where: { code: naiveParentCode },
-        });
+        where: { code: naiveParentCode },
+      });
 
-        // HUC/ICC Override: Highly Urbanized Cities and Independent Component Cities
-        // are administratively independent from their geographic provinces. 
-        // We force them to bypass the province and link directly to the Region.
-        if (parent && (loc.cityClassification === 'HUC' || loc.cityClassification === 'ICC')) {
-          parent = null;
-        }
-
-        if (parent) {
+      if (parent) {
         await this.prisma.psgcLocations.update({
           where: { psgcLocationId: loc.psgcLocationId },
           data: { parentId: parent.psgcLocationId },
@@ -552,6 +545,14 @@ export class PsgcService {
       Bgy: 'barangay',
     };
     return map[raw] ?? raw.toLowerCase();
+  }
+
+  private fixEncoding(str: string): string {
+    if (!str) return str;
+    // Fix PSA API UTF-8 Mojibake issues (ISO-8859-1 corruption)
+    return str
+      .replace(/Ã±/g, 'ñ')
+      .replace(/Ã‘/g, 'Ñ');
   }
 
   private normalizeCityClass(raw?: string | null): string | undefined {
