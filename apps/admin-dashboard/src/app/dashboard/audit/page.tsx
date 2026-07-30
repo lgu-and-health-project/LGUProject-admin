@@ -98,7 +98,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             System Audit Logs
@@ -119,7 +119,7 @@ export default function AuditLogsPage() {
         </button>
       </div>
 
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between gap-4">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
         <div className="relative max-w-md w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-text-secondary" />

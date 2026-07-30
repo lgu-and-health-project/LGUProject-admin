@@ -270,7 +270,7 @@ export default function TenantsPage() {
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Tenant Organizations
@@ -298,7 +298,7 @@ export default function TenantsPage() {
         </button>
       </div>
 
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col gap-4">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative w-full max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -406,8 +406,9 @@ export default function TenantsPage() {
             <p>No LGU tenants found.</p>
           </div>
         ) : (
-          <table className="min-w-full h-full divide-y divide-text-secondary/10">
-            <thead className="bg-background/50">
+          <div className="overflow-x-auto flex-1 min-h-0">
+            <table className="min-w-full h-full divide-y divide-text-secondary/10">
+              <thead className="bg-background/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                   Organization
@@ -505,7 +506,8 @@ export default function TenantsPage() {
                   </tr>
                 ))}
               </tbody>
-          </table>
+            </table>
+          </div>
         )}
 
         {!loading && filteredTenants.length > 0 && (

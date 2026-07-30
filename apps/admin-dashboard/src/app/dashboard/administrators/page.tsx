@@ -233,7 +233,7 @@ export default function AdministratorsPage() {
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Administrator Management
@@ -257,7 +257,7 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between gap-4">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
         <div className="relative max-w-md w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-text-secondary" />
@@ -283,8 +283,9 @@ export default function AdministratorsPage() {
 
       {/* Data Table */}
       <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
-        <table className="min-w-full h-full divide-y divide-text-secondary/10">
-          <thead className="bg-background/50">
+        <div className="overflow-x-auto flex-1 min-h-0">
+          <table className="min-w-full h-full divide-y divide-text-secondary/10">
+            <thead className="bg-background/50">
             <tr>
               <th
                 scope="col"
@@ -528,7 +529,8 @@ export default function AdministratorsPage() {
                   </tr>
                 ))}
               </tbody>
-        </table>
+            </table>
+          </div>
 
         {/* Pagination */}
         {!loading && filteredAdmins.length > 0 && (
