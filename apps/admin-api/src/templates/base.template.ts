@@ -8,7 +8,7 @@ export interface BaseEmailTemplateOptions {
 export const getBaseEmailTemplate = ({
   content,
   appName = 'One City LGU Platform',
-  companyName = 'The One City Team',
+  companyName = 'Infinite Motion Xpress Inc.',
   location = 'Philippines',
 }: BaseEmailTemplateOptions) => {
   return `
@@ -22,7 +22,7 @@ export const getBaseEmailTemplate = ({
 
         <hr style="border:none;border-top:1px solid #eee;margin-top:20px;" />
         <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
-          <p>${appName}</p>
+          <p>&copy; ${new Date().getFullYear()} ${companyName}</p>
           <p>${location}</p>
         </div>
       </div>

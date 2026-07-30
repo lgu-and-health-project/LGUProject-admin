@@ -84,7 +84,8 @@ export class UsersService {
           html: getOtpEmailTemplate({
             code,
             appName: 'LGU Platform',
-            companyName: 'LGU Admin Team',
+            companyName: 'Infinite Motion Xpress Inc.',
+            teamName: 'LGU Admin Team',
             validityMinutes: 5,
           }),
         });

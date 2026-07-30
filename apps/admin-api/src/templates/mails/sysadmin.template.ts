@@ -4,12 +4,14 @@ export interface SysadminEmailTemplateOptions {
   registrationKey: string;
   appName?: string;
   companyName?: string;
+  teamName?: string;
 }
 
 export const getSysadminEmailTemplate = ({
   registrationKey,
   appName = 'One City LGU Platform',
-  companyName = 'The One City Team',
+  companyName = 'Infinite Motion Xpress Inc.',
+  teamName = 'The One City Team',
 }: SysadminEmailTemplateOptions) => {
   const content = `
     <p style="font-size:1.1em">Hi there,</p>
@@ -26,7 +28,7 @@ export const getSysadminEmailTemplate = ({
       <strong>Security Warning:</strong> Do not share this key with anyone. Our team will never ask for your registration key.
     </p>
 
-    <p style="font-size:0.9em;">Regards,<br />${companyName}</p>
+    <p style="font-size:0.9em;">Regards,<br />${teamName}</p>
   `;
 
   return getBaseEmailTemplate({ content, appName, companyName });

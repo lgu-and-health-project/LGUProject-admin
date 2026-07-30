@@ -4,12 +4,14 @@ export interface InviteEmailTemplateOptions {
   inviteLink: string;
   appName?: string;
   companyName?: string;
+  teamName?: string;
 }
 
 export const getInviteEmailTemplate = ({
   inviteLink,
   appName = 'One City LGU Platform',
-  companyName = 'The One City Team',
+  companyName = 'Infinite Motion Xpress Inc.',
+  teamName = 'The One City Team',
 }: InviteEmailTemplateOptions) => {
   const content = `
     <p style="font-size:1.1em">Hi there,</p>
@@ -27,7 +29,7 @@ export const getInviteEmailTemplate = ({
       <a href="${inviteLink}" style="color: #00466a;">${inviteLink}</a>
     </p>
 
-    <p style="font-size:0.9em;">Regards,<br />${companyName}</p>
+    <p style="font-size:0.9em;">Regards,<br />${teamName}</p>
   `;
 
   return getBaseEmailTemplate({ content, appName, companyName });
