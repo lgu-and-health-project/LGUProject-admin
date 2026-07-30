@@ -15,7 +15,6 @@ dns.setDefaultResultOrder('ipv4first');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
-
   app.use(
     helmet({
       contentSecurityPolicy:
@@ -35,18 +34,29 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
-  const allowedOrigins =
-    process.env.NODE_ENV === 'production'
-      ? [process.env.FRONTEND_URL as string]
-      : [
-          process.env.FRONTEND_URL || 'http://localhost:3000',
-          'http://192.168.100.28:3000',
-        ];
-
+  
+  // 2. Enable CORS with a robust dynamic origin checker
   app.enableCors({
-    origin: allowedOrigins,
-    credentials: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like server-to-server or curl)
+      if (!origin) return callback(null, true);
+      
+      const configuredFrontend = process.env.FRONTEND_URL?.trim().replace(/\/$/, '');
+      const allowedOrigins = [
+        configuredFrontend,
+        'http://localhost:3000',
+        'http://192.168.100.28:3000'
+      ].filter(Boolean);
+
+      // Automatically allow ANY Vercel preview branches for easy testing,
+      // or exact matches for the configured FRONTEND_URL
+      if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true, // This is REQUIRED for the browser to accept HttpOnly cookies from the backend
   });
 
   // Mount tRPC on /trpc. Auth, internal, and health routes stay REST.
