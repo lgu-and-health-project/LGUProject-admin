@@ -269,27 +269,33 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
-        <div className="relative max-w-md w-full">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-text-secondary" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg leading-5 bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center space-x-2">
-          <select className="block w-full pl-3 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option>All Statuses</option>
-            <option>Pending Approval</option>
-            <option>Active</option>
-            <option>Invited</option>
-          </select>
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
+            <select
+              className="block w-full pl-10 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+              defaultValue="All Statuses"
+            >
+              <option value="All Statuses">All Statuses</option>
+              <option value="Pending Approval">Pending Approval</option>
+              <option value="Active">Active</option>
+              <option value="Invited">Invited</option>
+            </select>
+          </div>
         </div>
       </div>
 
