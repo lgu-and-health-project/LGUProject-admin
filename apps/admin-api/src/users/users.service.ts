@@ -20,7 +20,7 @@ import {
 import { IdentifierType, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as nodemailer from 'nodemailer';
-import { getOtpEmailTemplate } from './templates/otp.template';
+import { getOtpEmailTemplate } from '../templates/mails/otp.template';
 
 @Injectable()
 export class UsersService {
