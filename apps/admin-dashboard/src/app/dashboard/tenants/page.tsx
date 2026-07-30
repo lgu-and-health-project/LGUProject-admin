@@ -438,11 +438,11 @@ export default function TenantsPage() {
                 >
                   <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-bold uppercase">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-semibold uppercase">
                         {t.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-foreground">
+                        <div className="text-sm font-medium text-foreground">
                           {t.name}
                         </div>
                         <div className="text-xs text-text-secondary">
