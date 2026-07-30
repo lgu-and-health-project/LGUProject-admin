@@ -39,3 +39,4 @@ export const getInviteEmailTemplate = ({
 
   return getBaseEmailTemplate({ content, appName, companyName });
 };
+

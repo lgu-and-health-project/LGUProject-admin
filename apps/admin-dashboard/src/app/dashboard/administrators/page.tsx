@@ -16,6 +16,7 @@ import {
   Trash2,
   Edit,
   Flag,
+  Save,
 } from "lucide-react";
 import {
   adminService,
@@ -50,6 +51,10 @@ export default function AdministratorsPage() {
     isOpen: boolean;
     idToDelete: string | null;
   }>({ isOpen: false, idToDelete: null });
+
+  const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ fullName: "" });
+  const [editLoading, setEditLoading] = useState(false);
 
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
@@ -470,11 +475,13 @@ export default function AdministratorsPage() {
                             <div className="absolute right-8 top-0 mt-0 w-48 bg-surface border border-text-secondary/10 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
                               {canEdit && (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
-                                    toast('Edit profile functionality coming soon', { icon: '🚧' });
+                                    setEditForm({ fullName: admin.fullName });
+                                    setSelectedAdminToEdit(admin);
                                   }}
-                                  className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:bg-background hover:text-foreground transition-colors flex items-center"
+                                  className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:text-foreground hover:bg-background transition-colors flex items-center"
                                 >
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit Profile
@@ -689,6 +696,94 @@ export default function AdministratorsPage() {
                 </form>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Side Drawer Overlay */}
+      {selectedAdminToEdit && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-background/50 backdrop-blur-sm transition-all"
+          onClick={() => setSelectedAdminToEdit(null)}
+        >
+          <div
+            className="w-full max-w-md bg-surface border-l border-text-secondary/10 shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-text-secondary/10 flex justify-between items-center bg-background/50">
+              <h2 className="text-xl font-bold text-foreground flex items-center">
+                <Edit className="w-5 h-5 mr-2 text-primary" />
+                Edit Administrator
+              </h2>
+              <button
+                onClick={() => setSelectedAdminToEdit(null)}
+                className="p-2 text-text-secondary hover:text-foreground rounded-full hover:bg-background transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setEditLoading(true);
+                try {
+                  await adminService.updateAdmin(selectedAdminToEdit.id, { fullName: editForm.fullName });
+                  setAdmins(admins.map(a => a.id === selectedAdminToEdit.id ? { ...a, fullName: editForm.fullName } : a));
+                  toast.success("Profile updated successfully!");
+                  setSelectedAdminToEdit(null);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to update profile");
+                } finally {
+                  setEditLoading(false);
+                }
+              }}
+              className="flex-1 flex flex-col"
+            >
+              <div className="flex-1 p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={selectedAdminToEdit.email}
+                    disabled
+                    className="w-full px-4 py-2 bg-background/50 border border-text-secondary/20 rounded-lg text-sm text-text-secondary cursor-not-allowed"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">Email cannot be changed.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-text-secondary/20 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              <div className="p-6 border-t border-text-secondary/10 bg-background/50 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdminToEdit(null)}
+                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-foreground hover:bg-surface border border-transparent hover:border-text-secondary/20 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 disabled:opacity-70"
+                >
+                  {editLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
