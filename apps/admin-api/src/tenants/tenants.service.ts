@@ -9,8 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { PsgcService } from '../psgc/psgc.service';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
 import { getSysadminEmailTemplate } from '../templates/mails/sysadmin.template';
+import { sendPlatformEmail } from '../utils/gmail';
 import {
   TenantStatus,
   LicenseStatus,
@@ -135,20 +135,7 @@ export class TenantsService {
     }
     
     try {
-      const transporter = nodemailer.createTransport({
-        host: this.configService.get<string>('SMTP_HOST'),
-        port: this.configService.get<number>('SMTP_PORT'),
-        secure: Number(this.configService.get("SMTP_PORT")) === 465,
-        // @ts-ignore
-        family: 4,
-        auth: {
-          user: this.configService.get<string>('SMTP_USER'),
-          pass: this.configService.get<string>('SMTP_PASS'),
-        },
-      } as any);
-
-      await transporter.sendMail({
-        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+      await sendPlatformEmail(this.configService, {
         to: data.sysadminEmail,
         subject: 'Your System Administrator Account has been created',
         text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
@@ -159,7 +146,7 @@ export class TenantsService {
         }),
       });
       
-      this.logger.log(`Sysadmin registration email sent successfully to ${data.sysadminEmail}`);
+      this.logger.log(`Sysadmin credentials sent successfully to ${data.sysadminEmail}`);
     } catch (error) {
       this.logger.error(`Failed to send sysadmin email to ${data.sysadminEmail}`, error);
     }
