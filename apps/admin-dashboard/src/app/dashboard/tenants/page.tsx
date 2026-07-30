@@ -241,7 +241,9 @@ export default function TenantsPage() {
 
   const fuse = useMemo(() => new Fuse(tenants, {
     keys: ["name", "psgcCode"],
-    threshold: 0.3,
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
   }), [tenants]);
 
   const filteredTenants = useMemo(() => {

@@ -222,7 +222,9 @@ export default function AdministratorsPage() {
 
   const fuse = useMemo(() => new Fuse(admins, {
     keys: ["fullName", "email"],
-    threshold: 0.3,
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
   }), [admins]);
 
   const filteredAdmins = useMemo(() => {

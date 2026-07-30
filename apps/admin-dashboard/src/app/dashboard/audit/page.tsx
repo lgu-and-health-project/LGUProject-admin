@@ -74,7 +74,9 @@ export default function AuditLogsPage() {
         getFn: (log) => formatAuditDetails(log.action, log.metadata, (log as any).status)
       }
     ],
-    threshold: 0.3,
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
   }), [logs]);
 
   const filteredLogs = useMemo(() => {

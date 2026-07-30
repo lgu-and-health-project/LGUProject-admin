@@ -162,8 +162,9 @@ export class PsgcService {
       
       this.fuseCache = new Fuse(docs, { 
         keys: ['fullAddress'],
-        threshold: 0.3,
+        threshold: 0.5,
         ignoreLocation: true,
+        findAllMatches: true,
       });
       this.logger.log(`Fuzzy cache built with ${docs.length} locations.`);
     } catch (err) {
