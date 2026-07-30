@@ -418,25 +418,25 @@ export default function TenantsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto flex-1 min-h-0">
-            <table className="min-w-full h-full divide-y divide-text-secondary/10">
+            <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
               <thead className="bg-background/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
                   Organization
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                   Level
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
                   System Administrator
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Registered
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Actions
                 </th>
               </tr>
@@ -507,15 +507,6 @@ export default function TenantsPage() {
                 </tr>
               ))}
 
-
-                {/* Empty rows to stretch table height evenly */}
-                {Array.from({ length: Math.max(0, itemsPerPage - paginatedTenants.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent">
-                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      <div className="h-8 w-8"></div>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>

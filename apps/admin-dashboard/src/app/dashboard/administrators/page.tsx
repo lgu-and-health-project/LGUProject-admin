@@ -296,40 +296,40 @@ export default function AdministratorsPage() {
       {/* Data Table */}
       <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
         <div className="overflow-x-auto flex-1 min-h-0">
-          <table className="min-w-full h-full divide-y divide-text-secondary/10">
+          <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
             <thead className="bg-background/50">
             <tr>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]"
               >
                 Administrator
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Role
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Status
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[20%]"
               >
                 Appointed By
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Joined
               </th>
-              <th scope="col" className="relative px-6 py-3">
+              <th scope="col" className="relative px-6 py-3 w-[10%]">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -533,15 +533,6 @@ export default function AdministratorsPage() {
               })
             )}
 
-
-                {/* Empty rows to stretch table height evenly */}
-                {Array.from({ length: Math.max(0, itemsPerPage - paginatedAdmins.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent">
-                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      <div className="h-8 w-8"></div>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>
