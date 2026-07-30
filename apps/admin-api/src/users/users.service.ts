@@ -19,8 +19,8 @@ import {
 } from './dto';
 import { IdentifierType, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import * as nodemailer from 'nodemailer';
 import { getOtpEmailTemplate } from '../templates/mails/otp.template';
+import { sendPlatformEmail } from '../utils/gmail';
 
 const OTP_TTL_MINUTES = 5;
 
@@ -68,19 +68,7 @@ export class UsersService {
 
     if (identifierType === IdentifierType.EMAIL) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: this.configService.get<string>('SMTP_HOST'),
-          port: this.configService.get<number>('SMTP_PORT'),
-          secure: Number(this.configService.get<number>('SMTP_PORT')) === 465,
-          family: 4, // Force IPv4 to prevent Render IPv6 network unreachable errors
-          auth: {
-            user: this.configService.get<string>('SMTP_USER'),
-            pass: this.configService.get<string>('SMTP_PASS'),
-          },
-        } as any);
-
-        await transporter.sendMail({
-          from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        await sendPlatformEmail(this.configService, {
           to: data.identifier,
           subject: 'Your OTP Code - One City',
           text: `Your OTP code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`,

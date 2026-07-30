@@ -11,8 +11,8 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
 import { getInviteEmailTemplate } from '../templates/mails/invite.template';
+import { sendPlatformEmail } from '../utils/gmail';
 import {
   AdminStatus,
   AdminRole,
@@ -130,20 +130,7 @@ export class AdminsService {
     const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
     
     try {
-      const transporter = nodemailer.createTransport({
-        host: this.configService.get<string>('SMTP_HOST'),
-        port: this.configService.get<number>('SMTP_PORT'),
-        secure: Number(this.configService.get("SMTP_PORT")) === 465,
-        // @ts-ignore
-        family: 4,
-        auth: {
-          user: this.configService.get<string>('SMTP_USER'),
-          pass: this.configService.get<string>('SMTP_PASS'),
-        },
-      } as any);
-
-      await transporter.sendMail({
-        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+      await sendPlatformEmail(this.configService, {
         to: data.email,
         subject: 'You have been invited to One City LGU Platform',
         text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
@@ -152,7 +139,7 @@ export class AdminsService {
           validityDays: INVITE_TTL_DAYS,
         }),
       });
-      
+
       this.logger.log(`Invite email sent successfully to ${data.email}`);
     } catch (error) {
       this.logger.error(`Failed to send invite email to ${data.email}`, error);
@@ -404,20 +391,7 @@ export class AdminsService {
     const inviteLink = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/invite?token=${inviteTokenPlain}`;
     
     try {
-      const transporter = nodemailer.createTransport({
-        host: this.configService.get<string>('SMTP_HOST'),
-        port: this.configService.get<number>('SMTP_PORT'),
-        secure: Number(this.configService.get("SMTP_PORT")) === 465,
-        // @ts-ignore
-        family: 4,
-        auth: {
-          user: this.configService.get<string>('SMTP_USER'),
-          pass: this.configService.get<string>('SMTP_PASS'),
-        },
-      } as any);
-
-      await transporter.sendMail({
-        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+      await sendPlatformEmail(this.configService, {
         to: admin.email,
         subject: 'Reminder: You have been invited to One City LGU Platform',
         text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
@@ -426,8 +400,8 @@ export class AdminsService {
           validityDays: INVITE_TTL_DAYS,
         }),
       });
-      
-      this.logger.log(`Invite reminder email sent successfully to ${admin.email}`);
+
+      this.logger.log(`Reminder email sent successfully to ${admin.email}`);
     } catch (error) {
       this.logger.error(`Failed to send invite reminder email to ${admin.email}`, error);
     }
