@@ -108,11 +108,13 @@ export default function AuditLogsPage() {
           </p>
         </div>
         <button
+          type="button"
           onClick={loadLogs}
           disabled={loading}
+          suppressHydrationWarning
           className="inline-flex items-center justify-center px-4 py-2 bg-surface border border-text-secondary/20 text-foreground text-sm font-medium rounded-lg hover:bg-background transition-colors"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-primary" : ""}`} />
+          <RefreshCw suppressHydrationWarning className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-primary" : ""}`.trim()} />
           Refresh Data
         </button>
       </div>
@@ -226,6 +228,7 @@ export default function AuditLogsPage() {
             </div>
             <div className="flex space-x-2">
               <button
+                type="button"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
@@ -233,6 +236,7 @@ export default function AuditLogsPage() {
                 Previous
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages || totalPages === 0}
                 className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"

@@ -110,6 +110,7 @@ export default function DashboardLayout({
         {/* Sidebar Footer */}
         <div className="p-3 border-t border-text-secondary/10 overflow-x-hidden">
           <button
+            type="button"
             onClick={handleLogout}
             className={`w-full flex items-center rounded-xl p-2.5 text-text-secondary hover:bg-red-500/10 hover:text-red-500 transition-colors group relative`}
             title={collapsed ? "Logout" : undefined}
@@ -142,6 +143,7 @@ export default function DashboardLayout({
         <header className="flex items-center justify-between h-16 px-6 bg-surface border-b border-text-secondary/10 z-10">
           <div className="flex items-center space-x-4">
             <button
+              type="button"
               onClick={() => setCollapsed(!collapsed)}
               className="p-2 -ml-2 rounded-lg text-text-secondary hover:bg-background hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
               aria-label="Toggle Sidebar"
