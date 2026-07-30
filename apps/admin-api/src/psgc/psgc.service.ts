@@ -122,6 +122,17 @@ export class PsgcService {
     return this.fetchAndCache(trimmed);
   }
 
+  async findChildren(parentCode: string): Promise<PsgcLocations[]> {
+    const parent = await this.prisma.psgcLocations.findUnique({
+      where: { code: parentCode.trim() },
+    });
+    if (!parent) return [];
+    return this.prisma.psgcLocations.findMany({
+      where: { parentId: parent.psgcLocationId },
+      orderBy: { areaName: 'asc' },
+    });
+  }
+
   async findByLevel(
     level: string,
     parentCode?: string,

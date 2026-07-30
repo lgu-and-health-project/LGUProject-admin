@@ -97,13 +97,18 @@ export function PsgcSyncSection() {
   };
 
   const filteredHistory = syncHistory.filter(
-    (log) => !(log.status === "COMPLETED" && log.totalRecords === 0 && log.progress === 0)
+    (log) =>
+      !(
+        log.status === "COMPLETED" &&
+        log.totalRecords === 0 &&
+        log.progress === 0
+      ),
   );
-  
+
   const totalPages = Math.ceil(filteredHistory.length / itemsPerPage) || 1;
   const paginatedHistory = filteredHistory.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -143,8 +148,7 @@ export function PsgcSyncSection() {
       <div className="p-6">
         <p className="text-sm text-text-secondary mb-6">
           Synchronize the local database with the official PSA Philippine
-          Standard Geographic Code (PSGC) API. The sync process runs in the
-          background and respects rate limits to prevent API abuse.
+          Standard Geographic Code (PSGC) API.
         </p>
 
         {syncStatus && syncStatus.status === "IN_PROGRESS" && (
@@ -199,34 +203,38 @@ export function PsgcSyncSection() {
           </div>
         )}
 
-        {syncStatus && syncStatus.status === "FAILED" && syncStatus.errorDetails !== "Canceled by user" && (
-          <div className="mb-6 bg-red-50/50 border border-red-100 rounded-xl p-5 flex items-start">
-            <AlertCircle className="w-5 h-5 text-red-500 mr-3 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-semibold text-red-900">
-                Last sync failed
-              </h4>
-              <p className="text-sm text-red-700/80 mt-1">
-                {syncStatus.errorDetails ||
-                  "Unknown error occurred during sync."}
-              </p>
+        {syncStatus &&
+          syncStatus.status === "FAILED" &&
+          syncStatus.errorDetails !== "Canceled by user" && (
+            <div className="mb-6 bg-red-50/50 border border-red-100 rounded-xl p-5 flex items-start">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-3 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-red-900">
+                  Last sync failed
+                </h4>
+                <p className="text-sm text-red-700/80 mt-1">
+                  {syncStatus.errorDetails ||
+                    "Unknown error occurred during sync."}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {syncStatus && syncStatus.status === "FAILED" && syncStatus.errorDetails === "Canceled by user" && (
-          <div className="mb-6 bg-amber-50/50 border border-amber-100 rounded-xl p-5 flex items-start">
-            <AlertCircle className="w-5 h-5 text-amber-500 mr-3 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-semibold text-amber-900">
-                Sync Cancelled
-              </h4>
-              <p className="text-sm text-amber-700/80 mt-1">
-                The sync process was cancelled by a user.
-              </p>
+        {syncStatus &&
+          syncStatus.status === "FAILED" &&
+          syncStatus.errorDetails === "Canceled by user" && (
+            <div className="mb-6 bg-amber-50/50 border border-amber-100 rounded-xl p-5 flex items-start">
+              <AlertCircle className="w-5 h-5 text-amber-500 mr-3 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-amber-900">
+                  Sync Cancelled
+                </h4>
+                <p className="text-sm text-amber-700/80 mt-1">
+                  The sync process was cancelled by a user.
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center mt-8">
           <Calendar className="w-4 h-4 mr-2 text-text-secondary" />
@@ -245,7 +253,9 @@ export function PsgcSyncSection() {
                   <th className="px-4 py-3 font-medium w-[20%]">Status</th>
                   <th className="px-4 py-3 font-medium w-[15%]">Version</th>
                   <th className="px-4 py-3 font-medium w-[20%]">Records</th>
-                  <th className="px-4 py-3 font-medium w-[20%]">API Requests</th>
+                  <th className="px-4 py-3 font-medium w-[20%]">
+                    API Requests
+                  </th>
                   <th className="px-4 py-3 font-medium w-[25%]">Date</th>
                 </tr>
               </thead>
@@ -281,13 +291,13 @@ export function PsgcSyncSection() {
                 ))}
               </tbody>
             </table>
-            
+
             {totalPages > 1 && (
               <div className="px-4 py-3 border-t border-text-secondary/10 flex items-center justify-between bg-background/50">
                 <span className="text-xs text-text-secondary">
                   Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                  {Math.min(currentPage * itemsPerPage, filteredHistory.length)} of{" "}
-                  {filteredHistory.length} logs
+                  {Math.min(currentPage * itemsPerPage, filteredHistory.length)}{" "}
+                  of {filteredHistory.length} logs
                 </span>
                 <div className="flex gap-1">
                   <button
@@ -298,7 +308,9 @@ export function PsgcSyncSection() {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={currentPage >= totalPages}
                     className="p-1 rounded-md text-text-secondary hover:bg-background disabled:opacity-50 transition-colors"
                   >
