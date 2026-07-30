@@ -18,7 +18,6 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction, AuditStatus, AuditTargetType } from '@prisma/client';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('psgc')
 export class PsgcController {
   private readonly logger = new Logger(PsgcController.name);
@@ -37,6 +36,7 @@ export class PsgcController {
    * official PSA API. Restricted to ROOT_SUPERADMIN. Logged to audit trail.
    */
   @Post('sync')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AdminRole.ROOT_SUPERADMIN)
   async sync(@Req() req: AuthenticatedRequest) {
     this.logger.log(`PSGC bulk sync triggered by ${req.user.email}`);
@@ -70,12 +70,14 @@ export class PsgcController {
   }
 
   @Post('sync/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AdminRole.ROOT_SUPERADMIN)
   async cancelSync() {
     return this.psgcService.cancelSync();
   }
 
   @Get('sync/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AdminRole.ROOT_SUPERADMIN)
   @SkipThrottle({ default: true, auth: true })
   async getSyncStatus() {
@@ -83,6 +85,7 @@ export class PsgcController {
   }
 
   @Get('sync/history')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AdminRole.ROOT_SUPERADMIN)
   @SkipThrottle({ default: true, auth: true })
   async getSyncHistory() {
