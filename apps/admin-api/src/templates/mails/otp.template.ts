@@ -13,7 +13,7 @@ export const getOtpEmailTemplate = ({
   appName = 'One City LGU Platform',
   companyName = 'Infinite Motion Xpress Inc.',
   teamName = 'The One City Team',
-  validityMinutes = 5,
+  validityMinutes,
 }: OtpEmailTemplateOptions) => {
   const content = `
     <p style="font-size:1.1em">Hi there,</p>

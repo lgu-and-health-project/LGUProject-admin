@@ -147,6 +147,7 @@ export class AdminsService {
         text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
         html: getInviteEmailTemplate({
           inviteLink,
+          validityDays: INVITE_TTL_DAYS,
         }),
       });
       
@@ -418,6 +419,7 @@ export class AdminsService {
         text: `You have been invited to join as an Administrator. Accept your invite here: ${inviteLink}`,
         html: getInviteEmailTemplate({
           inviteLink,
+          validityDays: INVITE_TTL_DAYS,
         }),
       });
       

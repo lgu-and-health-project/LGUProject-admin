@@ -22,6 +22,8 @@ import * as bcrypt from 'bcryptjs';
 import * as nodemailer from 'nodemailer';
 import { getOtpEmailTemplate } from '../templates/mails/otp.template';
 
+const OTP_TTL_MINUTES = 5;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -50,7 +52,7 @@ export class UsersService {
 
     // Generate a 6-digit OTP
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
     await this.prisma.otps.create({
       data: {
@@ -80,13 +82,13 @@ export class UsersService {
           from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
           to: data.identifier,
           subject: 'Your OTP Code - One City',
-          text: `Your OTP code is ${code}. It expires in 5 minutes.`,
+          text: `Your OTP code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`,
           html: getOtpEmailTemplate({
             code,
             appName: 'LGU Platform',
             companyName: 'Infinite Motion Xpress Inc.',
             teamName: 'LGU Admin Team',
-            validityMinutes: 5,
+            validityMinutes: OTP_TTL_MINUTES,
           }),
         });
         
