@@ -75,7 +75,11 @@ enum AuditStatus {
 }
 
 enum UserStatus {
+  AWAITING_OTP
+  AWAITING_PROFILE
   ACTIVE
+  UNVERIFIED
+  VERIFIED
   INACTIVE
 }
 
@@ -109,6 +113,7 @@ model SuperAdmins {
 
   auditLogs     SuperAdminAuditLogs[]
   refreshTokens RefreshTokens[]
+  reviewedVerifications UserVerifications[]
 }
 
 model PsgcLocations {
@@ -127,6 +132,7 @@ model PsgcLocations {
   fetchedAt          DateTime        @default(now()) @map("fetched_at") @db.Timestamptz
 
   tenant LguTenants[]
+  addresses Addresses[]
 }
 
 enum SyncStatus {
@@ -219,6 +225,7 @@ model Users {
   identifiers UserIdentifiers[]
   credentials UserCredentials[]
   profiles    UserProfiles[]
+  verifications UserVerifications[]
 }
 
 model UserIdentifiers {
@@ -245,10 +252,11 @@ model UserProfiles {
   userId        String   @map("user_id") @db.Uuid
   user          Users    @relation(fields: [userId], references: [userId], onDelete: Cascade)
   firstName     String   @map("first_name")
-  middleName    String   @map("middle_name")
+  middleName    String?  @map("middle_name")
   lastName      String   @map("last_name")
   extensionName String?  @map("extension_name")
   sex           String
+  genderIdentity String? @map("gender_identity")
   birthDate     DateTime @map("birth_date")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -269,14 +277,52 @@ model ProfileAddresses {
 }
 
 model Addresses {
-  addressId    String   @id @default(uuid()) @map("address_id") @db.Uuid
-  unitBuilding String?  @map("unit_building")
+  addressId    String         @id @default(uuid()) @map("address_id") @db.Uuid
+  psgcCode     String         @map("psgc_code")
+  psgcLocation PsgcLocations  @relation(fields: [psgcCode], references: [code])
+  unitBuilding String?        @map("unit_building")
   street       String?
-  zipCode      String   @map("zip_code")
+  zipCode      String?        @map("zip_code")
   latitude     Decimal?
   longitude    Decimal?
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   profileAddress ProfileAddresses[]
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model UserVerifications {
+  verificationId String   @id @default(uuid()) @map("verification_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  user           Users    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  idType         String   @map("id_type")
+  idNumber       String?  @map("id_number")
+  idPhotoUrl     String   @map("id_photo_url")
+  status         VerificationStatus @default(PENDING)
+  submittedAt    DateTime @default(now()) @map("submitted_at") @db.Timestamptz
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz
+  reviewerId     String?  @map("reviewer_id") @db.Uuid
+  reviewer       SuperAdmins? @relation(fields: [reviewerId], references: [superadminId])
+  remarks        String?
+
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+}
+
+model Otps {
+  otpId          String         @id @default(uuid()) @map("otp_id") @db.Uuid
+  identifier     String
+  identifierType IdentifierType @map("identifier_type")
+  code           String
+  expiresAt      DateTime       @map("expires_at") @db.Timestamptz
+  isUsed         Boolean        @default(false) @map("is_used")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([identifier, code])
 }
