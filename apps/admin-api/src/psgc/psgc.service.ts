@@ -215,7 +215,7 @@ export class PsgcService {
     // Return in the exact order scored by Fuse.js
     return ids
       .map(id => dbRecords.find(r => r.psgcLocationId === id))
-      .filter((r): r is PsgcLocations => r !== undefined);
+      .filter((r): r is typeof dbRecords[0] => r !== undefined);
   }
 
   // ─── Bulk sync ──────────────────────────────────────────────────────
