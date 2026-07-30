@@ -106,12 +106,16 @@ export const psgcService = {
     const data = await fetchApi<any[]>(
       `/psgc/search?q=${encodeURIComponent(query.trim())}`
     );
-    return data.map((raw) => ({
-      code: raw.code,
-      name: raw.areaName,
-      level: raw.level,
-      subtext: formatSubtext(raw.level, raw.cityClassification),
-    }));
+    return data.map((raw) => {
+      const baseSubtext = formatSubtext(raw.level, raw.cityClassification);
+      const address = buildAddress(raw);
+      return {
+        code: raw.code,
+        name: raw.areaName,
+        level: raw.level,
+        subtext: address ? `${baseSubtext}, ${address}` : baseSubtext,
+      };
+    });
   },
 
   /** Look up a single PSGC code. Returns cached data or fetches from PSA on miss. */
@@ -243,4 +247,18 @@ function formatSubtext(level: string, cityClassification?: string | null): strin
     default:
       return level;
   }
+}
+
+/** Construct a full address string from nested parent hierarchy (e.g., Province, Region) */
+function buildAddress(raw: any): string {
+  const parts: string[] = [];
+  let current = raw.parent;
+  while (current) {
+    // Stop at region, and prevent any duplicate names in the hierarchy
+    if (current.level !== "region" && !parts.includes(current.areaName)) {
+      parts.push(current.areaName);
+    }
+    current = current.parent;
+  }
+  return parts.length > 0 ? parts.join(", ") : "";
 }

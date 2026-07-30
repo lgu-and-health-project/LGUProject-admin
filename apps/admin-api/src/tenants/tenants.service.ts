@@ -8,6 +8,9 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { PsgcService } from '../psgc/psgc.service';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { getSysadminEmailTemplate } from '../templates/mails/sysadmin.template';
 import {
   TenantStatus,
   LicenseStatus,
@@ -25,6 +28,7 @@ export class TenantsService {
     private prisma: PrismaService,
     private auditLogsService: AuditLogsService,
     private psgcService: PsgcService,
+    private configService: ConfigService,
   ) {}
 
   async findAll() {
@@ -100,10 +104,63 @@ export class TenantsService {
     });
 
     const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
-    // TODO: replace with nodemailer send once the email service is wired up.
-    this.logger.log(
-      `[No email service yet] Setup link for sysadmin (${data.sysadminEmail}): ${setupLink}`,
-    );
+    
+    // Fetch the full hierarchy to build the proper organization name
+    const psgcHierarchy = await this.prisma.psgcLocations.findUnique({
+      where: { code: data.psgcCode },
+      include: {
+        parent: {
+          include: {
+            parent: {
+              include: {
+                parent: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let organizationName = psgcLocation.areaName;
+    if (psgcHierarchy) {
+      const parts: string[] = [];
+      let current: any = psgcHierarchy;
+      while (current) {
+        if (current.level !== 'region' && !parts.includes(current.areaName)) {
+          parts.push(current.areaName);
+        }
+        current = current.parent;
+      }
+      if (parts.length > 0) organizationName = parts.join(', ');
+    }
+    
+    try {
+      const transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASS'),
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"${this.configService.get<string>('MAIL_FROM_NAME')}" <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: data.sysadminEmail,
+        subject: 'Your System Administrator Account has been created',
+        text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
+        html: getSysadminEmailTemplate({
+          registrationKey,
+          setupLink,
+          organizationName,
+        }),
+      });
+      
+      this.logger.log(`Sysadmin registration email sent successfully to ${data.sysadminEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send sysadmin email to ${data.sysadminEmail}`, error);
+    }
 
     return { ...tenant, registrationKey };
   }
@@ -122,7 +179,10 @@ export class TenantsService {
       action: AuditAction.suspend_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
     return result;
@@ -142,7 +202,10 @@ export class TenantsService {
       action: AuditAction.activate_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
     return result;
@@ -151,20 +214,27 @@ export class TenantsService {
   async deleteTenant(id: string, actor: JwtPayload) {
     const tenant = await this.getActiveTenantOrThrow(id);
 
-    const result = await this.prisma.lguTenants.update({
-      where: { tenantId: id },
-      data: { status: TenantStatus.deleted, deletedAt: new Date() },
-    });
+    const result = await this.prisma.$transaction([
+      this.prisma.licenses.deleteMany({
+        where: { tenantId: id },
+      }),
+      this.prisma.lguTenants.delete({
+        where: { tenantId: id },
+      }),
+    ]);
 
     await this.auditLogsService.logAction({
       actorId: actor.sub,
       action: AuditAction.delete_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
-    return result;
+    return result[1];
   }
 
   private async getActiveTenantOrThrow(id: string) {

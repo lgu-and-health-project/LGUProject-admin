@@ -239,24 +239,35 @@ export default function TenantsPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const filteredTenants = tenants.filter((t) => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || (t.psgcCode && t.psgcCode.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesLevel = selectedLevels.includes(t.level);
-    
-    let matchesLocation = true;
-    if (t.psgcCode) {
-      if (locationProvince) {
-        const provPrefix = locationProvince.replace(/0+$/, '');
-        matchesLocation = t.psgcCode.startsWith(provPrefix);
-      } else if (locationRegion) {
-        const regPrefix = locationRegion.replace(/0+$/, '');
-        matchesLocation = t.psgcCode.startsWith(regPrefix);
-      }
-    }
+  const fuse = useMemo(() => new Fuse(tenants, {
+    keys: ["name", "psgcCode"],
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
+  }), [tenants]);
 
-    return matchesSearch && matchesLevel && matchesLocation;
-  });
+  const filteredTenants = useMemo(() => {
+    let result = tenants;
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+    return result.filter(t => {
+      const matchesLevel = selectedLevels.includes(t.level);
+      
+      let matchesLocation = true;
+      if (t.psgcCode) {
+        if (locationProvince) {
+          const provPrefix = locationProvince.replace(/0+$/, '');
+          matchesLocation = t.psgcCode.startsWith(provPrefix);
+        } else if (locationRegion) {
+          const regPrefix = locationRegion.replace(/0+$/, '');
+          matchesLocation = t.psgcCode.startsWith(regPrefix);
+        }
+      }
+
+      return matchesLevel && matchesLocation;
+    });
+  }, [searchQuery, selectedLevels, locationRegion, locationProvince, tenants, fuse]);
 
   const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
   const paginatedTenants = filteredTenants.slice(
@@ -270,7 +281,7 @@ export default function TenantsPage() {
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Tenant Organizations
@@ -298,7 +309,7 @@ export default function TenantsPage() {
         </button>
       </div>
 
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col gap-4">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative w-full max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -406,25 +417,26 @@ export default function TenantsPage() {
             <p>No LGU tenants found.</p>
           </div>
         ) : (
-          <table className="min-w-full h-full divide-y divide-text-secondary/10">
-            <thead className="bg-background/50">
+          <div className="overflow-x-auto flex-1 min-h-0">
+            <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
+              <thead className="bg-background/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
                   Organization
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                   Level
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
                   System Administrator
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Registered
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Actions
                 </th>
               </tr>
@@ -437,11 +449,11 @@ export default function TenantsPage() {
                 >
                   <td className="px-6 py-2 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-bold uppercase">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mr-3 font-semibold uppercase">
                         {t.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-foreground">
+                        <div className="text-sm font-medium text-foreground">
                           {t.name}
                         </div>
                         <div className="text-xs text-text-secondary">
@@ -495,17 +507,9 @@ export default function TenantsPage() {
                 </tr>
               ))}
 
-
-                {/* Empty rows to stretch table height evenly */}
-                {Array.from({ length: Math.max(0, itemsPerPage - paginatedTenants.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent">
-                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      <div className="h-8 w-8"></div>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
-          </table>
+            </table>
+          </div>
         )}
 
         {!loading && filteredTenants.length > 0 && (

@@ -38,8 +38,8 @@ export default function Dashboard() {
     <div className="p-8 w-full h-full flex flex-col">
       {/* Page Header */}
       <div className="mb-8 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Platform Overview</h1>
-        <p className="text-text-secondary mt-1">Welcome back. Here is a summary of platform operations.</p>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Platform Overview</h1>
+        <p className="text-text-secondary text-sm mt-1">Welcome back. Here is a summary of platform operations.</p>
       </div>
 
       {/* Metrics Grid */}

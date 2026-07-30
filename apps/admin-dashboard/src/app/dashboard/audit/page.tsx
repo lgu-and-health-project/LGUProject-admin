@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Fuse from "fuse.js";
 import { format } from "date-fns";
 import { auditService, AuditLog } from "@/services/auditService";
 import { formatAuditDetails } from "@/lib/formatAuditDetails";
@@ -62,23 +63,32 @@ export default function AuditLogsPage() {
     }
   };
 
-  const filteredLogs = logs.filter(log => {
-    if (log.action === "sync_psgc") return false;
+  const fuse = useMemo(() => new Fuse(logs.filter(log => log.action !== "sync_psgc"), {
+    keys: [
+      "actor.fullName",
+      "actor.email",
+      "metadata.attempted_email",
+      "metadata.email",
+      {
+        name: "detailsText",
+        getFn: (log) => formatAuditDetails(log.action, log.metadata, (log as any).status)
+      }
+    ],
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
+  }), [logs]);
 
-    if (log.action === "sync_psgc") return false;
-
-    const detailsText = formatAuditDetails(log.action, log.metadata, (log as any).status);
-    const matchesSearch =
-      (log.actor?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.actor?.email.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.metadata?.attempted_email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (log.metadata?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      detailsText.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesFilter = filterAction === "ALL" || log.action === filterAction;
-
-    return matchesSearch && matchesFilter;
-  });
+  const filteredLogs = useMemo(() => {
+    let result = logs.filter(log => log.action !== "sync_psgc");
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+    if (filterAction !== "ALL") {
+      result = result.filter(log => log.action === filterAction);
+    }
+    return result;
+  }, [searchQuery, filterAction, logs, fuse]);
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const paginatedLogs = filteredLogs.slice(
@@ -98,7 +108,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             System Audit Logs
@@ -108,17 +118,19 @@ export default function AuditLogsPage() {
           </p>
         </div>
         <button
+          type="button"
           onClick={loadLogs}
           disabled={loading}
+          suppressHydrationWarning
           className="inline-flex items-center justify-center px-4 py-2 bg-surface border border-text-secondary/20 text-foreground text-sm font-medium rounded-lg hover:bg-background transition-colors"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-primary" : ""}`} />
+          <RefreshCw suppressHydrationWarning className={`w-4 h-4 mr-2 ${loading ? "animate-spin text-primary" : ""}`.trim()} />
           Refresh Data
         </button>
       </div>
 
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative max-w-md w-full">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-text-secondary" />
           </div>
@@ -130,8 +142,8 @@ export default function AuditLogsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="relative">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
             <select
               value={filterAction}
@@ -143,6 +155,7 @@ export default function AuditLogsPage() {
               <option value="approve_admin">Approved Admin</option>
               <option value="delete_admin">Deleted Admin</option>
               <option value="register_tenant">Registered Tenant</option>
+              <option value="delete_tenant">Deleted Tenant</option>
               <option value="suspend_tenant">Suspended Tenant</option>
             </select>
           </div>
@@ -162,19 +175,19 @@ export default function AuditLogsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto flex-1 min-h-0">
-            <table className="min-w-full h-full divide-y divide-text-secondary/10">
+            <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
               <thead className="bg-background/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                     Timestamp
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
                     Admin
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[20%]">
                     Action
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[40%]">
                     Details
                   </th>
                 </tr>
@@ -205,15 +218,6 @@ export default function AuditLogsPage() {
                   );
                 })}
 
-
-                {/* Empty rows to stretch table height evenly */}
-                {Array.from({ length: Math.max(0, itemsPerPage - paginatedLogs.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent">
-                    <td colSpan={4} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      <div className="h-8 w-8"></div>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>
@@ -226,6 +230,7 @@ export default function AuditLogsPage() {
             </div>
             <div className="flex space-x-2">
               <button
+                type="button"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"
@@ -233,6 +238,7 @@ export default function AuditLogsPage() {
                 Previous
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage >= totalPages || totalPages === 0}
                 className="px-3 py-1.5 text-sm font-medium bg-surface border border-text-secondary/20 hover:bg-background rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-foreground"

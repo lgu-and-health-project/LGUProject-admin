@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Fuse from "fuse.js";
 import {
   Plus,
   Search,
+  Filter,
   MoreVertical,
   Shield,
   ShieldAlert,
@@ -16,6 +18,7 @@ import {
   Trash2,
   Edit,
   Flag,
+  Save,
 } from "lucide-react";
 import {
   adminService,
@@ -51,6 +54,10 @@ export default function AdministratorsPage() {
     idToDelete: string | null;
   }>({ isOpen: false, idToDelete: null });
 
+  const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ fullName: "" });
+  const [editLoading, setEditLoading] = useState(false);
+
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -71,6 +78,7 @@ export default function AdministratorsPage() {
     return null;
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState("All Statuses");
 
   useEffect(() => {
     fetchAdmins();
@@ -214,11 +222,36 @@ export default function AdministratorsPage() {
     return <Shield className="w-4 h-4 text-text-secondary mr-1.5" />;
   };
 
-  const filteredAdmins = admins.filter(
-    (a) =>
-      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.email.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const fuse = useMemo(() => new Fuse(admins, {
+    keys: ["fullName", "email"],
+    threshold: 0.5,
+    ignoreLocation: true,
+    findAllMatches: true,
+  }), [admins]);
+
+  const filteredAdmins = useMemo(() => {
+    let result = admins;
+
+    // Apply text search
+    if (searchQuery) {
+      result = fuse.search(searchQuery).map(r => r.item);
+    }
+
+    // Apply status filter
+    if (filterStatus !== "All Statuses") {
+      const statusMap: Record<string, string> = {
+        "Pending Approval": "PENDING_APPROVAL",
+        "Active": "ACTIVE",
+        "Invited": "INVITED"
+      };
+      const targetStatus = statusMap[filterStatus];
+      if (targetStatus) {
+        result = result.filter(admin => admin.status === targetStatus);
+      }
+    }
+
+    return result;
+  }, [searchQuery, filterStatus, admins, fuse]);
 
   const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
   const paginatedAdmins = filteredAdmins.slice(
@@ -228,12 +261,12 @@ export default function AdministratorsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, filterStatus]);
 
   return (
     <div className="p-8 h-full flex flex-col relative w-full">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 flex-shrink-0">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Administrator Management
@@ -257,66 +290,74 @@ export default function AdministratorsPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative max-w-md w-full">
+      <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-text-secondary" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg leading-5 bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-3 py-2 border border-text-secondary/20 rounded-lg bg-background text-foreground placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors"
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center space-x-2">
-          <select className="block w-full pl-3 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option>All Statuses</option>
-            <option>Pending Approval</option>
-            <option>Active</option>
-            <option>Invited</option>
-          </select>
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
+            <select
+              className="block w-full pl-10 pr-10 py-2 text-sm border border-text-secondary/20 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="All Statuses">All Statuses</option>
+              <option value="Pending Approval">Pending Approval</option>
+              <option value="Active">Active</option>
+              <option value="Invited">Invited</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Data Table */}
       <div className="bg-surface border border-text-secondary/10 rounded-b-2xl shadow-sm flex-1 flex flex-col min-h-0">
-        <table className="min-w-full h-full divide-y divide-text-secondary/10">
-          <thead className="bg-background/50">
+        <div className="overflow-x-auto flex-1 min-h-0">
+          <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
+            <thead className="bg-background/50">
             <tr>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]"
               >
                 Administrator
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Role
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Status
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[20%]"
               >
                 Appointed By
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]"
               >
                 Joined
               </th>
-              <th scope="col" className="relative px-6 py-3">
+              <th scope="col" className="relative px-6 py-3 w-[10%]">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -469,11 +510,13 @@ export default function AdministratorsPage() {
                             <div className="absolute right-8 top-0 mt-0 w-48 bg-surface border border-text-secondary/10 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
                               {canEdit && (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
-                                    toast('Edit profile functionality coming soon', { icon: '🚧' });
+                                    setEditForm({ fullName: admin.fullName });
+                                    setSelectedAdminToEdit(admin);
                                   }}
-                                  className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:bg-background hover:text-foreground transition-colors flex items-center"
+                                  className="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:text-foreground hover:bg-background transition-colors flex items-center"
                                 >
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit Profile
@@ -518,17 +561,9 @@ export default function AdministratorsPage() {
               })
             )}
 
-
-                {/* Empty rows to stretch table height evenly */}
-                {Array.from({ length: Math.max(0, itemsPerPage - paginatedAdmins.length) }).map((_, index) => (
-                  <tr key={`empty-${index}`} className="hover:bg-transparent">
-                    <td colSpan={6} className="px-6 py-2 whitespace-nowrap text-transparent select-none border-0">
-                      <div className="h-8 w-8"></div>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
-        </table>
+            </table>
+          </div>
 
         {/* Pagination */}
         {!loading && filteredAdmins.length > 0 && (
@@ -687,6 +722,94 @@ export default function AdministratorsPage() {
                 </form>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Side Drawer Overlay */}
+      {selectedAdminToEdit && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-background/50 backdrop-blur-sm transition-all"
+          onClick={() => setSelectedAdminToEdit(null)}
+        >
+          <div
+            className="w-full max-w-md bg-surface border-l border-text-secondary/10 shadow-2xl h-full flex flex-col animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-text-secondary/10 flex justify-between items-center bg-background/50">
+              <h2 className="text-xl font-bold text-foreground flex items-center">
+                <Edit className="w-5 h-5 mr-2 text-primary" />
+                Edit Administrator
+              </h2>
+              <button
+                onClick={() => setSelectedAdminToEdit(null)}
+                className="p-2 text-text-secondary hover:text-foreground rounded-full hover:bg-background transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setEditLoading(true);
+                try {
+                  await adminService.updateAdmin(selectedAdminToEdit.id, { fullName: editForm.fullName });
+                  setAdmins(admins.map(a => a.id === selectedAdminToEdit.id ? { ...a, fullName: editForm.fullName } : a));
+                  toast.success("Profile updated successfully!");
+                  setSelectedAdminToEdit(null);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to update profile");
+                } finally {
+                  setEditLoading(false);
+                }
+              }}
+              className="flex-1 flex flex-col"
+            >
+              <div className="flex-1 p-6 space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={selectedAdminToEdit.email}
+                    disabled
+                    className="w-full px-4 py-2 bg-background/50 border border-text-secondary/20 rounded-lg text-sm text-text-secondary cursor-not-allowed"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">Email cannot be changed.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-text-secondary/20 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              <div className="p-6 border-t border-text-secondary/10 bg-background/50 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdminToEdit(null)}
+                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-foreground hover:bg-surface border border-transparent hover:border-text-secondary/20 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 disabled:opacity-70"
+                >
+                  {editLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
