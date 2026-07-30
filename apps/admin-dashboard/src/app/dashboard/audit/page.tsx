@@ -155,6 +155,7 @@ export default function AuditLogsPage() {
               <option value="approve_admin">Approved Admin</option>
               <option value="delete_admin">Deleted Admin</option>
               <option value="register_tenant">Registered Tenant</option>
+              <option value="delete_tenant">Deleted Tenant</option>
               <option value="suspend_tenant">Suspended Tenant</option>
             </select>
           </div>
