@@ -148,7 +148,10 @@ export class TenantsService {
       action: AuditAction.suspend_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
     return result;
@@ -168,7 +171,10 @@ export class TenantsService {
       action: AuditAction.activate_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
     return result;
@@ -191,7 +197,10 @@ export class TenantsService {
       action: AuditAction.delete_tenant,
       targetType: AuditTargetType.tenant,
       targetId: tenant.tenantId,
-      metadata: { tenant_name: tenant.psgcLocation.areaName },
+      metadata: { 
+        tenant_name: tenant.psgcLocation.areaName,
+        psgc_code: tenant.psgcLocation.code
+      },
     });
 
     return result[1];
