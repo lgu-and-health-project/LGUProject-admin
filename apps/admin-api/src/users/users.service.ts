@@ -13,7 +13,9 @@ import {
   LoginCitizenDto, 
   SendOtpDto, 
   InitialProfileDto, 
-  SubmitIdVerificationDto 
+  SubmitIdVerificationDto,
+  GoogleAuthDto,
+  ExtendedProfileDto
 } from './dto';
 import { IdentifierType, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -150,13 +152,50 @@ export class UsersService {
   }
 
   async login(data: LoginCitizenDto) {
-    // TODO: implement new login logic
-    return { access_token: 'dummy', user: {} };
+    const identifierType = this.getIdentifierType(data.identifier);
+
+    const identifierRecord = await this.prisma.userIdentifiers.findFirst({
+      where: { identifierValue: data.identifier, identifierType },
+      include: {
+        user: {
+          include: {
+            credentials: true,
+          },
+        },
+      },
+    });
+
+    // Use generic error messages to prevent username enumeration
+    if (!identifierRecord || !identifierRecord.user || identifierRecord.user.credentials.length === 0) {
+      throw new UnauthorizedException('Invalid credentials provided');
+    }
+
+    const user = identifierRecord.user;
+    const credential = user.credentials[0];
+
+    const isValidPassword = await bcrypt.compare(data.password, credential.passwordHash);
+    if (!isValidPassword) {
+      throw new UnauthorizedException('Invalid credentials provided');
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      throw new UnauthorizedException('This account has been deactivated');
+    }
+
+    const payload = { sub: user.userId, type: 'citizen' };
+    const access_token = await this.jwtService.signAsync(payload);
+
+    return {
+      access_token,
+      message: 'Authentication successful',
+      userStatus: user.status,
+    };
   }
 
-  async googleAuth(data: any) {
-    // TODO: implement Google SSO logic
-    return { access_token: 'dummy', user: {} };
+  async googleAuth(data: GoogleAuthDto) {
+    // TODO: Implement actual Google OAuth verification (e.g., using google-auth-library)
+    // We throw 501 instead of returning dummy tokens to maintain security
+    throw new BadRequestException('Google SSO is not fully implemented yet');
   }
 
   async updateInitialProfile(userId: string, data: InitialProfileDto) {
@@ -216,13 +255,43 @@ export class UsersService {
     return { message: 'ID verification submitted successfully', verificationId: verification.verificationId };
   }
 
-  async updateExtendedProfile(userId: string, data: any) {
-    // TODO: implement extended profile update
-    return { message: 'Extended profile updated' };
+  async updateExtendedProfile(userId: string, data: ExtendedProfileDto) {
+    // TODO: implement extended profile update (saving occupation, civil status, etc.)
+    throw new BadRequestException('Extended profile update is not fully implemented yet');
   }
 
   async getProfile(userId: string) {
-    // TODO: implement get profile
-    return { message: 'Profile fetched' };
+    const user = await this.prisma.users.findUnique({
+      where: { userId },
+      include: {
+        identifiers: {
+          select: { identifierType: true, identifierValue: true }
+        },
+        profiles: {
+          include: {
+            addresses: {
+              include: { address: true }
+            }
+          }
+        },
+        verifications: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User profile not found');
+    }
+
+    return {
+      userId: user.userId,
+      status: user.status,
+      createdAt: user.createdAt,
+      identifiers: user.identifiers,
+      profile: user.profiles[0] || null,
+      latestVerification: user.verifications[0] || null,
+    };
   }
 }
