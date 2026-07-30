@@ -150,6 +150,16 @@ export class PsgcController {
    * Looks up a single PSGC code. Returns cached data or fetches from PSA
    * API on a cache miss.
    */
+  /**
+   * GET /psgc/children/:code
+   * Returns all direct geographic children of a given PSGC code.
+   * Perfect for cascading dropdowns (Region -> Province/HUC -> City/Mun -> Brgy).
+   */
+  @Get('children/:code')
+  async getChildren(@Param('code') code: string) {
+    return this.psgcService.findChildren(code);
+  }
+
   @Get('lookup/:code')
   async lookup(@Param('code') code: string) {
     return this.psgcService.resolveByCode(code);
