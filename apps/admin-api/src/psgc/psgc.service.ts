@@ -122,13 +122,15 @@ export class PsgcService {
     return this.fetchAndCache(trimmed);
   }
 
-  async findChildren(parentCode: string): Promise<PsgcLocations[]> {
+  async findChildren(parentCode: string, strict: boolean = false): Promise<PsgcLocations[]> {
     const parent = await this.prisma.psgcLocations.findUnique({
       where: { code: parentCode.trim() },
     });
     if (!parent) return [];
+    
+    const parentField = strict ? 'parentId' : 'geographicParentId';
     return this.prisma.psgcLocations.findMany({
-      where: { parentId: parent.psgcLocationId },
+      where: { [parentField]: parent.psgcLocationId },
       orderBy: { areaName: 'asc' },
     });
   }
@@ -136,6 +138,7 @@ export class PsgcService {
   async findByLevel(
     level: string,
     parentCode?: string,
+    strict: boolean = false,
   ): Promise<PsgcLocations[]> {
     const where: Record<string, unknown> = { level };
     if (parentCode) {
@@ -143,7 +146,12 @@ export class PsgcService {
         where: { code: parentCode.trim() },
       });
       if (!parent) return [];
-      where.parentId = parent.psgcLocationId;
+      
+      if (strict) {
+        where.parentId = parent.psgcLocationId;
+      } else {
+        where.geographicParentId = parent.psgcLocationId;
+      }
     }
     return this.prisma.psgcLocations.findMany({
       where,
@@ -447,7 +455,10 @@ export class PsgcService {
     const unlinked = await this.prisma.psgcLocations.findMany({
       where: {
         psgcVersion,
-        parentId: null,
+        OR: [
+          { parentId: null },
+          { geographicParentId: null },
+        ],
         level: { not: 'region' }, // regions have no parent by design
       },
     });
@@ -461,42 +472,48 @@ export class PsgcService {
       const naiveParentCode = this.deriveParentCode(loc.code, this.levelToPsaCode(loc.level));
       if (!naiveParentCode) continue;
 
-      let parent = await this.prisma.psgcLocations.findUnique({
+      let strictParent = await this.prisma.psgcLocations.findUnique({
         where: { code: naiveParentCode },
       });
 
-      if (parent && parent.psgcLocationId !== loc.psgcLocationId) {
+      // Circular reference protection for HUCs
+      if (strictParent && strictParent.psgcLocationId === loc.psgcLocationId) {
+        strictParent = null;
+      }
+
+      if (strictParent) {
         await this.prisma.psgcLocations.update({
           where: { psgcLocationId: loc.psgcLocationId },
-          data: { parentId: parent.psgcLocationId },
+          data: { 
+            parentId: strictParent.psgcLocationId,
+            geographicParentId: strictParent.psgcLocationId,
+          },
         });
         linkedNormal++;
       } else {
-        // Try geographic province fallback for HUCs/ICCs
-        const geographicProvinceCode = this.getGeographicProvinceForHuc(loc.code);
-        if (geographicProvinceCode) {
-          parent = await this.prisma.psgcLocations.findUnique({
-            where: { code: geographicProvinceCode },
-          });
-          if (parent) {
-            await this.prisma.psgcLocations.update({
-              where: { psgcLocationId: loc.psgcLocationId },
-              data: { parentId: parent.psgcLocationId },
-            });
-            linkedFallback++;
-            continue;
-          }
-        }
-
-        // Finally, try region fallback for HUCs/ICCs without province mapping (e.g. NCR)
+        // Strict parent falls back to region (HUCs / ICCs / NCR)
         const regionCode = loc.code.slice(0, 2) + '00000000';
-        parent = await this.prisma.psgcLocations.findUnique({
+        const regionParent = await this.prisma.psgcLocations.findUnique({
           where: { code: regionCode },
         });
-        if (parent) {
+
+        if (regionParent) {
+          // Geographic parent checks mapping first (e.g. Iloilo City -> Iloilo Province)
+          const geographicProvinceCode = this.getGeographicProvinceForHuc(loc.code);
+          let geographicParent: any = null;
+          
+          if (geographicProvinceCode) {
+            geographicParent = await this.prisma.psgcLocations.findUnique({
+              where: { code: geographicProvinceCode },
+            });
+          }
+
           await this.prisma.psgcLocations.update({
             where: { psgcLocationId: loc.psgcLocationId },
-            data: { parentId: parent.psgcLocationId },
+            data: { 
+              parentId: regionParent.psgcLocationId,
+              geographicParentId: geographicParent ? geographicParent.psgcLocationId : regionParent.psgcLocationId,
+            },
           });
           linkedFallback++;
         } else {
