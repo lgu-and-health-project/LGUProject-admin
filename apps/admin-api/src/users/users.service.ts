@@ -74,9 +74,9 @@ export class UsersService {
           text: `Your OTP code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`,
           html: getOtpEmailTemplate({
             code,
-            appName: 'LGU Platform',
+            appName: 'One City',
             companyName: 'Infinite Motion Xpress Inc.',
-            teamName: 'LGU Admin Team',
+            teamName: 'One City Team',
             validityMinutes: OTP_TTL_MINUTES,
           }),
         });
