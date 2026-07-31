@@ -65,7 +65,7 @@ export const psgcService = {
 
   /** Fetch all provinces, optionally filtered by parent region code. */
   getProvinces: async (regionCode?: string): Promise<PsgcLocation[]> => {
-    const query = regionCode ? `?regionCode=${regionCode}` : "";
+    const query = regionCode ? `?regionCode=${regionCode}&strict=true` : "?strict=true";
     const data = await fetchApi<any[]>(`/psgc/provinces${query}`);
     return data.map(mapLocation);
   },
@@ -74,14 +74,14 @@ export const psgcService = {
   getMunicipalities: async (
     provinceCode?: string
   ): Promise<PsgcLocation[]> => {
-    const query = provinceCode ? `?provinceCode=${provinceCode}` : "";
+    const query = provinceCode ? `?provinceCode=${provinceCode}&strict=true` : "?strict=true";
     const data = await fetchApi<any[]>(`/psgc/municipalities${query}`);
     return data.map(mapLocation);
   },
 
   /** Fetch all cities, optionally filtered by parent province code. */
   getCities: async (provinceCode?: string): Promise<PsgcLocation[]> => {
-    const query = provinceCode ? `?provinceCode=${provinceCode}` : "";
+    const query = provinceCode ? `?provinceCode=${provinceCode}&strict=true` : "?strict=true";
     const data = await fetchApi<any[]>(`/psgc/cities${query}`);
     return data.map(mapLocation);
   },
@@ -91,8 +91,8 @@ export const psgcService = {
     municipalityCode?: string
   ): Promise<PsgcLocation[]> => {
     const query = municipalityCode
-      ? `?municipalityCode=${municipalityCode}`
-      : "";
+      ? `?municipalityCode=${municipalityCode}&strict=true`
+      : "?strict=true";
     const data = await fetchApi<any[]>(`/psgc/barangays${query}`);
     return data.map(mapLocation);
   },
