@@ -75,7 +75,6 @@ enum AuditStatus {
 }
 
 enum UserStatus {
-  AWAITING_OTP
   AWAITING_PROFILE
   ACTIVE
   UNVERIFIED
