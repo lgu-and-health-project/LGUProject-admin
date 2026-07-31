@@ -108,59 +108,48 @@ export class PsgcController {
    * Returns all provinces, optionally filtered by parent region code.
    */
   @Get('provinces')
-  async getProvinces(@Query('regionCode') regionCode?: string) {
-    return this.psgcService.findByLevel('province', regionCode);
+  async getProvinces(
+    @Query('regionCode') regionCode?: string,
+    @Query('strict') strict?: string,
+  ) {
+    return this.psgcService.findByLevel('province', regionCode, strict === 'true');
   }
 
-  /**
-   * GET /psgc/municipalities?provinceCode=0102800000
-   * Returns all cities/municipalities, optionally filtered by parent province code.
-   */
   @Get('municipalities')
-  async getMunicipalities(@Query('provinceCode') provinceCode?: string) {
-    return this.psgcService.findByLevel('municipality', provinceCode);
+  async getMunicipalities(
+    @Query('provinceCode') provinceCode?: string,
+    @Query('strict') strict?: string,
+  ) {
+    return this.psgcService.findByLevel('municipality', provinceCode, strict === 'true');
   }
 
-  /**
-   * GET /psgc/cities?provinceCode=0102800000
-   * Returns all cities, optionally filtered by parent province code.
-   */
   @Get('cities')
-  async getCities(@Query('provinceCode') provinceCode?: string) {
-    return this.psgcService.findByLevel('city', provinceCode);
+  async getCities(
+    @Query('provinceCode') provinceCode?: string,
+    @Query('strict') strict?: string,
+  ) {
+    return this.psgcService.findByLevel('city', provinceCode, strict === 'true');
   }
 
-  /**
-   * GET /psgc/barangays?municipalityCode=0102801000
-   * Returns all barangays, optionally filtered by parent city/municipality code.
-   */
   @Get('barangays')
-  async getBarangays(@Query('municipalityCode') municipalityCode?: string) {
-    return this.psgcService.findByLevel('barangay', municipalityCode);
+  async getBarangays(
+    @Query('municipalityCode') municipalityCode?: string,
+    @Query('strict') strict?: string,
+  ) {
+    return this.psgcService.findByLevel('barangay', municipalityCode, strict === 'true');
   }
 
-  /**
-   * GET /psgc/search?q=Laoag
-   * Full-text search across all locally-cached location names.
-   */
   @Get('search')
   async search(@Query('q') query: string) {
     return this.psgcService.searchByName(query);
   }
 
-  /**
-   * GET /psgc/lookup/:code
-   * Looks up a single PSGC code. Returns cached data or fetches from PSA
-   * API on a cache miss.
-   */
-  /**
-   * GET /psgc/children/:code
-   * Returns all direct geographic children of a given PSGC code.
-   * Perfect for cascading dropdowns (Region -> Province/HUC -> City/Mun -> Brgy).
-   */
   @Get('children/:code')
-  async getChildren(@Param('code') code: string) {
-    return this.psgcService.findChildren(code);
+  async getChildren(
+    @Param('code') code: string,
+    @Query('strict') strict?: string,
+  ) {
+    return this.psgcService.findChildren(code, strict === 'true');
   }
 
   @Get('lookup/:code')

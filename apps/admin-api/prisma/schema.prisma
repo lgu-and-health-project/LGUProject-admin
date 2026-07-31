@@ -111,8 +111,8 @@ model SuperAdmins {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  auditLogs     SuperAdminAuditLogs[]
-  refreshTokens RefreshTokens[]
+  auditLogs             SuperAdminAuditLogs[]
+  refreshTokens         RefreshTokens[]
   reviewedVerifications UserVerifications[]
 }
 
@@ -126,12 +126,16 @@ model PsgcLocations {
   parentId           String?         @map("parent_id") @db.Uuid
   parent             PsgcLocations?  @relation("LocationHierarchy", fields: [parentId], references: [psgcLocationId])
   children           PsgcLocations[] @relation("LocationHierarchy")
+
+  geographicParentId String?         @map("geographic_parent_id") @db.Uuid
+  geographicParent   PsgcLocations?  @relation("GeographicHierarchy", fields: [geographicParentId], references: [psgcLocationId])
+  geographicChildren PsgcLocations[] @relation("GeographicHierarchy")
   supersededById     String?         @map("superseded_by_id") @db.Uuid
   supersededBy       PsgcLocations?  @relation("LocationSupersession", fields: [supersededById], references: [psgcLocationId])
   supersedes         PsgcLocations[] @relation("LocationSupersession")
   fetchedAt          DateTime        @default(now()) @map("fetched_at") @db.Timestamptz
 
-  tenant LguTenants[]
+  tenant    LguTenants[]
   addresses Addresses[]
 }
 
@@ -142,15 +146,15 @@ enum SyncStatus {
 }
 
 model PsgcSyncLogs {
-  syncId         String      @id @default(uuid()) @map("sync_id") @db.Uuid
-  psgcVersion    String      @map("psgc_version")
-  status         SyncStatus  @default(IN_PROGRESS)
-  progress       Int         @default(0)
-  totalRecords   Int         @default(0) @map("total_records")
-  trafficUsage   Int         @default(0) @map("traffic_usage")
-  startedAt      DateTime    @default(now()) @map("started_at") @db.Timestamptz
-  completedAt    DateTime?   @map("completed_at") @db.Timestamptz
-  errorDetails   String?     @map("error_details")
+  syncId       String     @id @default(uuid()) @map("sync_id") @db.Uuid
+  psgcVersion  String     @map("psgc_version")
+  status       SyncStatus @default(IN_PROGRESS)
+  progress     Int        @default(0)
+  totalRecords Int        @default(0) @map("total_records")
+  trafficUsage Int        @default(0) @map("traffic_usage")
+  startedAt    DateTime   @default(now()) @map("started_at") @db.Timestamptz
+  completedAt  DateTime?  @map("completed_at") @db.Timestamptz
+  errorDetails String?    @map("error_details")
 }
 
 model LguTenants {
@@ -222,9 +226,9 @@ model Users {
   status    UserStatus
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
 
-  identifiers UserIdentifiers[]
-  credentials UserCredentials[]
-  profiles    UserProfiles[]
+  identifiers   UserIdentifiers[]
+  credentials   UserCredentials[]
+  profiles      UserProfiles[]
   verifications UserVerifications[]
 }
 
@@ -248,18 +252,18 @@ model UserCredentials {
 }
 
 model UserProfiles {
-  profileId     String   @id @default(uuid()) @map("profile_id") @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
-  user          Users    @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  firstName     String   @map("first_name")
-  middleName    String?  @map("middle_name")
-  lastName      String   @map("last_name")
-  extensionName String?  @map("extension_name")
-  sex           String
-  genderIdentity String? @map("gender_identity")
-  birthDate     DateTime @map("birth_date")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  profileId      String   @id @default(uuid()) @map("profile_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  user           Users    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  firstName      String   @map("first_name")
+  middleName     String?  @map("middle_name")
+  lastName       String   @map("last_name")
+  extensionName  String?  @map("extension_name")
+  sex            String
+  genderIdentity String?  @map("gender_identity")
+  birthDate      DateTime @map("birth_date")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   addresses ProfileAddresses[]
 }
@@ -277,16 +281,16 @@ model ProfileAddresses {
 }
 
 model Addresses {
-  addressId    String         @id @default(uuid()) @map("address_id") @db.Uuid
-  psgcCode     String         @map("psgc_code")
-  psgcLocation PsgcLocations  @relation(fields: [psgcCode], references: [code])
-  unitBuilding String?        @map("unit_building")
+  addressId    String        @id @default(uuid()) @map("address_id") @db.Uuid
+  psgcCode     String        @map("psgc_code")
+  psgcLocation PsgcLocations @relation(fields: [psgcCode], references: [code])
+  unitBuilding String?       @map("unit_building")
   street       String?
-  zipCode      String?        @map("zip_code")
+  zipCode      String?       @map("zip_code")
   latitude     Decimal?
   longitude    Decimal?
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   profileAddress ProfileAddresses[]
 }
@@ -298,21 +302,21 @@ enum VerificationStatus {
 }
 
 model UserVerifications {
-  verificationId String   @id @default(uuid()) @map("verification_id") @db.Uuid
-  userId         String   @map("user_id") @db.Uuid
-  user           Users    @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  idType         String   @map("id_type")
-  idNumber       String?  @map("id_number")
-  idPhotoUrl     String   @map("id_photo_url")
+  verificationId String             @id @default(uuid()) @map("verification_id") @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  user           Users              @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  idType         String             @map("id_type")
+  idNumber       String?            @map("id_number")
+  idPhotoUrl     String             @map("id_photo_url")
   status         VerificationStatus @default(PENDING)
-  submittedAt    DateTime @default(now()) @map("submitted_at") @db.Timestamptz
-  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz
-  reviewerId     String?  @map("reviewer_id") @db.Uuid
-  reviewer       SuperAdmins? @relation(fields: [reviewerId], references: [superadminId])
+  submittedAt    DateTime           @default(now()) @map("submitted_at") @db.Timestamptz
+  reviewedAt     DateTime?          @map("reviewed_at") @db.Timestamptz
+  reviewerId     String?            @map("reviewer_id") @db.Uuid
+  reviewer       SuperAdmins?       @relation(fields: [reviewerId], references: [superadminId])
   remarks        String?
 
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 }
 
 model Otps {
