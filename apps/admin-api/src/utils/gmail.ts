@@ -9,21 +9,21 @@ export async function sendPlatformEmail(
     subject: string;
     html: string;
     text: string;
-  }
+  },
 ) {
   const fromEmail = configService.get<string>('MAIL_FROM_ADDRESS');
   const fromName = configService.get<string>('MAIL_FROM_NAME');
   const clientId = configService.get<string>('GMAIL_CLIENT_ID');
-  
+
   // If we have a Google Client ID, we use the HTTP API to bypass strict outbound SMTP firewalls
   if (clientId) {
     const clientSecret = configService.get<string>('GMAIL_CLIENT_SECRET');
     const refreshToken = configService.get<string>('GMAIL_REFRESH_TOKEN');
-    
+
     const oAuth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
-      'https://developers.google.com/oauthplayground'
+      'https://developers.google.com/oauthplayground',
     );
 
     oAuth2Client.setCredentials({ refresh_token: refreshToken });
