@@ -203,7 +203,7 @@ export class TenantsService {
     });
   }
 
-  async recordHeartbeat(license: any, device: any) {
+  async recordHeartbeat(license: any, device: any, apiUrl?: string) {
     const updates: any = { 
       lastHeartbeatAt: new Date(),
       agentReachable: true,
@@ -219,6 +219,13 @@ export class TenantsService {
       where: { deviceId: license.deviceId },
       data: updates
     });
+
+    if (apiUrl) {
+      await this.prisma.lguTenants.update({
+        where: { tenantId: license.tenantId },
+        data: { apiUrl }
+      });
+    }
 
     if (updates.status === DeviceStatus.ACTIVE) {
       await this.auditLogsService.logAction({

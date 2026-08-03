@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Body,
   UseGuards,
 } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
@@ -35,7 +36,7 @@ export class InternalTenantsController {
 
   @Post('heartbeat/:registrationKey')
   @UseGuards(DeviceAuthGuard)
-  async heartbeat(@DeviceAuth() auth: DeviceAuthPayload) {
-    return this.tenantsService.recordHeartbeat(auth.license, auth.device);
+  async heartbeat(@DeviceAuth() auth: DeviceAuthPayload, @Body('apiUrl') apiUrl?: string) {
+    return this.tenantsService.recordHeartbeat(auth.license, auth.device, apiUrl);
   }
 }

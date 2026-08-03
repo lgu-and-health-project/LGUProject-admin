@@ -113,8 +113,9 @@ export class AdminApiService {
     }
     
     try {
+      const myApiUrl = this.configService.get<string>('PUBLIC_API_URL') || `http://localhost:${process.env.PORT || 4001}`;
       const url = `${this.adminApiUrl}/internal/tenants/heartbeat/${registrationKey}`;
-      await firstValueFrom(this.httpService.post(url));
+      await firstValueFrom(this.httpService.post(url, { apiUrl: myApiUrl }));
       this.logger.log(`Heartbeat sent successfully.`);
     } catch (error) {
       this.logger.error(`Error sending heartbeat: ${error.message}`);
