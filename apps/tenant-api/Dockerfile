@@ -33,6 +33,8 @@ COPY --from=builder /app/apps/tenant-api/prisma ./apps/tenant-api/prisma
 
 WORKDIR /app/apps/tenant-api
 
+RUN npx prisma generate
+
 EXPOSE 4001
 
 CMD ["pnpm", "start:prod"]
