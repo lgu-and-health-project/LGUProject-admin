@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import * as dns from 'dns';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { PrismaService } from './prisma/prisma.service';
 
 dns.setDefaultResultOrder('ipv4first');
 
@@ -85,6 +86,41 @@ async function bootstrap() {
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document);
+  }
+
+  const prisma = app.get(PrismaService);
+  const existingAdmin = await prisma.superAdmins.findFirst();
+  
+  if (!existingAdmin && process.env.INITIAL_SUPERADMIN_EMAIL && process.env.INITIAL_SUPERADMIN_PASSWORD) {
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.hash(process.env.INITIAL_SUPERADMIN_PASSWORD, 10);
+    
+    await prisma.superAdminCredentials.upsert({
+      where: { email: process.env.INITIAL_SUPERADMIN_EMAIL },
+      update: {
+        passwordHash,
+        superadmin: {
+          update: {
+            fullName: 'Root Superadmin',
+            role: 'ROOT_SUPERADMIN',
+            status: 'ACTIVE',
+          }
+        }
+      },
+      create: {
+        email: process.env.INITIAL_SUPERADMIN_EMAIL,
+        passwordHash,
+        superadmin: {
+          create: {
+            email: process.env.INITIAL_SUPERADMIN_EMAIL,
+            fullName: 'Root Superadmin',
+            role: 'ROOT_SUPERADMIN',
+            status: 'ACTIVE',
+          }
+        }
+      }
+    });
+    console.log('Seeded superadmin automatically on startup!');
   }
 
   await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
