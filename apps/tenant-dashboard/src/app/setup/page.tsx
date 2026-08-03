@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "@/components/AppLogo";
 import { Eye, EyeOff } from "lucide-react";
 import { authService } from "@/services/auth";
-import { fetchGraphQL } from "@/services/apiClient";
+import { fetchRest } from "@/services/apiClient";
 
 function SetupForm() {
   const router = useRouter();
@@ -42,28 +42,14 @@ function SetupForm() {
     setLoading(true);
 
     try {
-      const query = `
-        mutation Onboard($input: OnboardInput!) {
-          onboard(input: $input) {
-            user {
-              userId
-              email
-              role
-              orgCode
-              departmentId
-            }
-          }
-        }
-      `;
-      const variables = {
-        input: {
+      await fetchRest("/auth/onboard", {
+        method: "POST",
+        body: JSON.stringify({
           registrationKey,
           email,
           password,
-        },
-      };
-
-      await fetchGraphQL(query, variables);
+        }),
+      });
       await authService.login(email, password);
 
       router.push("/");
