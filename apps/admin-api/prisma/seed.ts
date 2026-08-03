@@ -42,22 +42,33 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-  const superAdmin = await prisma.superAdmins.upsert({
+  const superAdminCreds = await prisma.superAdminCredentials.upsert({
     where: { email: adminEmail },
     update: {
       passwordHash,
-      fullName: 'Root Superadmin',
-      role: AdminRole.ROOT_SUPERADMIN,
-      status: AdminStatus.ACTIVE,
+      superadmin: {
+        update: {
+          fullName: 'Root Superadmin',
+          role: AdminRole.ROOT_SUPERADMIN,
+          status: AdminStatus.ACTIVE,
+        }
+      }
     },
     create: {
       email: adminEmail,
       passwordHash,
-      fullName: 'Root Superadmin',
-      role: AdminRole.ROOT_SUPERADMIN,
-      status: AdminStatus.ACTIVE,
+      superadmin: {
+        create: {
+          email: adminEmail,
+          fullName: 'Root Superadmin',
+          role: AdminRole.ROOT_SUPERADMIN,
+          status: AdminStatus.ACTIVE,
+        }
+      }
     },
+    include: { superadmin: true },
   });
+  const superAdmin = superAdminCreds.superadmin;
 
   console.log(`SuperAdmin seeded successfully: ${superAdmin.email}`);
 }

@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminStatus, SuperAdmins } from '@prisma/client';
 import type { JwtPayload } from './auth.types';
 
-type SafeAdmin = Omit<SuperAdmins, 'passwordHash'>;
+type SafeAdmin = SuperAdmins;
 
 @Injectable()
 export class AuthService {
@@ -16,29 +16,31 @@ export class AuthService {
   ) {}
 
   async validateAdmin(email: string, pass: string): Promise<SafeAdmin> {
-    const admin = await this.prisma.superAdmins.findUnique({
+    const cred = await this.prisma.superAdminCredentials.findUnique({
       where: { email },
+      include: { superadmin: true }
     });
 
-    if (!admin) {
+    if (!cred) {
       throw new UnauthorizedException("Account doesn't exist");
     }
+    
+    const admin = cred.superadmin;
 
     if (admin.status === AdminStatus.REVOKED) {
       throw new UnauthorizedException('Account has been restricted');
     }
 
-    if (!admin.passwordHash) {
+    if (!cred.passwordHash) {
       throw new UnauthorizedException('Account not fully set up');
     }
 
-    const isMatch = await bcrypt.compare(pass, admin.passwordHash);
+    const isMatch = await bcrypt.compare(pass, cred.passwordHash);
     if (!isMatch) {
       throw new UnauthorizedException('Invalid Credentials');
     }
 
-    const { passwordHash: _pw, ...result } = admin;
-    return result;
+    return admin;
   }
 
   async login(user: SafeAdmin, familyId?: string) {
@@ -130,8 +132,7 @@ export class AuthService {
       data: { isRevoked: true, revokedAt: new Date() },
     });
 
-    const { passwordHash: _pw, ...user } = admin;
-    return this.login(user, tokenRecord.familyId);
+    return this.login(admin, tokenRecord.familyId);
   }
 
   async logout(refreshTokenPlain: string) {

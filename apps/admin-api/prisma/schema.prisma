@@ -92,9 +92,8 @@ enum IdentifierType {
 // ====================================
 model SuperAdmins {
   superadminId    String        @id @default(uuid()) @map("superadmin_id") @db.Uuid
-  email           String        @unique
+  email           String        // No longer unique, kept for history/display
   fullName        String        @map("full_name")
-  passwordHash    String        @map("password_hash")
   role            AdminRole
   status          AdminStatus
   appointedById   String?       @map("appointed_by_id") @db.Uuid
@@ -110,9 +109,20 @@ model SuperAdmins {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
+  credentials           SuperAdminCredentials?
   auditLogs             SuperAdminAuditLogs[]
   refreshTokens         RefreshTokens[]
   reviewedVerifications UserVerifications[]
+}
+
+model SuperAdminCredentials {
+  credentialId   String      @id @default(uuid()) @map("credential_id") @db.Uuid
+  superadminId   String      @unique @map("superadmin_id") @db.Uuid
+  superadmin     SuperAdmins @relation(fields: [superadminId], references: [superadminId], onDelete: Cascade)
+  email          String      @unique
+  passwordHash   String      @map("password_hash")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 }
 
 model PsgcLocations {

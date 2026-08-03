@@ -66,22 +66,14 @@ export class AdminsService {
   }
 
   async inviteAdmin(data: InviteAdminDto, inviter: JwtPayload) {
-    const existing = await this.prisma.superAdmins.findUnique({
+    const existing = await this.prisma.superAdminCredentials.findUnique({
       where: { email: data.email },
     });
 
     if (existing) {
-      if (existing.status === AdminStatus.REVOKED) {
-        // Tombstone the old revoked account's email so it can be reused.
-        await this.prisma.superAdmins.update({
-          where: { superadminId: existing.superadminId },
-          data: { email: `deleted_${Date.now()}_${existing.email}` },
-        });
-      } else {
-        throw new ConflictException(
-          'An administrator with this email already exists.',
-        );
-      }
+      throw new ConflictException(
+        'An administrator with this email already exists.',
+      );
     }
 
     const inviteTokenPlain = crypto.randomBytes(32).toString('hex');
@@ -107,7 +99,12 @@ export class AdminsService {
         fullName: data.fullName,
         role: data.role ?? AdminRole.ADMIN,
         status: isRoot ? AdminStatus.INVITED : AdminStatus.PENDING_APPROVAL,
-        passwordHash: placeholderHash,
+        credentials: {
+          create: {
+            email: data.email,
+            passwordHash: placeholderHash,
+          }
+        },
         inviteTokenHash: isRoot ? inviteTokenHash : null,
         inviteExpiresAt: isRoot ? inviteExpiresAt : null,
         appointedById: inviter.sub,
@@ -222,7 +219,11 @@ export class AdminsService {
     const result = await this.prisma.superAdmins.update({
       where: { superadminId: admin.superadminId },
       data: {
-        passwordHash,
+        credentials: {
+          update: {
+            passwordHash,
+          }
+        },
         status: AdminStatus.ACTIVE,
         inviteTokenHash: null,
         inviteExpiresAt: null,
@@ -236,7 +237,7 @@ export class AdminsService {
       targetId: admin.superadminId,
     });
 
-    const { passwordHash: _pw, inviteTokenHash: _hash, ...safe } = result;
+    const { inviteTokenHash: _hash, ...safe } = result;
     return safe;
   }
 
@@ -272,7 +273,7 @@ export class AdminsService {
       metadata: { note: 'Admin rejected invitation' },
     });
 
-    const { passwordHash: _pw, ...safe } = result;
+    const safe = result;
     return safe;
   }
 
@@ -286,10 +287,13 @@ export class AdminsService {
       throw new BadRequestException('Cannot delete the root superadmin');
     }
 
+    await this.prisma.superAdminCredentials.deleteMany({
+      where: { superadminId: id },
+    });
+
     const result = await this.prisma.superAdmins.update({
       where: { superadminId: id },
       data: {
-        email: `deleted_${Date.now()}_${admin.email}`,
         status: AdminStatus.REVOKED,
         revokedAt: new Date(),
         revokedById: actor.sub,
@@ -304,8 +308,7 @@ export class AdminsService {
       metadata: { email: admin.email, full_name: admin.fullName },
     });
 
-    const { passwordHash: _pw, ...safe } = result;
-    return safe;
+    return result;
   }
 
   async updateAdmin(id: string, data: UpdateAdminDto, actor: JwtPayload) {
@@ -320,10 +323,15 @@ export class AdminsService {
     });
     if (!admin) throw new NotFoundException('Administrator not found');
 
-    const updateData: { fullName?: string; passwordHash?: string } = {};
+    const updateData: { fullName?: string } = {};
     if (data.fullName) updateData.fullName = data.fullName;
+
     if (data.password) {
-      updateData.passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+      const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+      await this.prisma.superAdminCredentials.update({
+        where: { superadminId: id },
+        data: { passwordHash },
+      });
     }
 
     const result = await this.prisma.superAdmins.update({
