@@ -9,6 +9,7 @@ import { RbacModule } from './modules/rbac/rbac.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { HrisModule } from './modules/hris/hris.module';
 import { MisoModule } from './modules/miso/miso.module';
+import { TrpcModule } from './trpc/trpc.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MisoModule } from './modules/miso/miso.module';
     AnnouncementsModule,
     HrisModule,
     MisoModule,
+    TrpcModule,
   ],
   providers: [AppService],
 })

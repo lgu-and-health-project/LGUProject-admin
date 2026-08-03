@@ -1,4 +1,4 @@
-import { fetchRest } from "./apiClient";
+import { trpc } from "../lib/trpc";
 
 export interface ModulePermission {
   module: string;
@@ -24,17 +24,17 @@ export interface CurrentUser {
 
 export const authService = {
   login: async (email: string, password: string): Promise<CurrentUser> => {
-    const data = await fetchRest<{ user: CurrentUser }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    return data.user;
+    const res = await trpc.auth.login.mutate({ email, password });
+    if (res.access_token) {
+      localStorage.setItem("access_token", res.access_token);
+    }
+    return res.user;
   },
 
   getUser: async (): Promise<CurrentUser | null> => {
     try {
-      const data = await fetchRest<{ user: CurrentUser }>("/auth/me");
-      return data.user;
+      const res = await trpc.auth.me.query();
+      return res.user;
     } catch (e) {
       console.error("Failed to fetch user:", e);
       return null;
@@ -43,9 +43,8 @@ export const authService = {
   
   logout: async (): Promise<void> => {
     try {
-      // If we implement a backend logout route, we can call it here.
-      // For now, since JWT is in cookie, we rely on clearing the cookie or a backend logout endpoint.
-      await fetchRest("/auth/logout", { method: "POST" });
+      localStorage.removeItem("access_token");
+      // Add backend logout call here if implemented in trpc router later
     } catch (e) {
       console.warn("Logout error:", e);
     }

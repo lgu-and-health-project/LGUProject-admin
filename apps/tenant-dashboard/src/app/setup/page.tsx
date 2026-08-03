@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AppLogo from "@/components/AppLogo";
 import { Eye, EyeOff } from "lucide-react";
 import { authService } from "@/services/auth";
-import { fetchRest } from "@/services/apiClient";
+import { trpc } from "@/lib/trpc";
 
 function SetupForm() {
   const router = useRouter();
@@ -42,15 +42,15 @@ function SetupForm() {
     setLoading(true);
 
     try {
-      await fetchRest("/auth/onboard", {
-        method: "POST",
-        body: JSON.stringify({
-          registrationKey,
-          email,
-          password,
-        }),
+      const res = await trpc.auth.onboard.mutate({
+        registrationKey,
+        email,
+        password,
       });
-      await authService.login(email, password);
+      if (res.access_token) {
+        localStorage.setItem("access_token", res.access_token);
+      }
+
 
       router.push("/");
     } catch (err: any) {
