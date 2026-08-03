@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-api/package.json ./apps/tenant-api/
 COPY apps/admin-api/package.json ./apps/admin-api/
 COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
@@ -23,7 +23,7 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-api/package.json ./apps/tenant-api/
 
 RUN pnpm install --prod --filter tenant-api...
