@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, LogOut, Settings, Bell } from "lucide-react";
 import { authService, CurrentUser } from "@/services/auth";
-import { ADMIN_MODULES, LGU_MODULES, ALL_MODULES } from "@/lib/config/modules";
+import { ADMIN_MODULES, LGU_MODULES, ALL_MODULES, COMMON_MODULES, ModuleTab } from "@/lib/config/modules";
 import { getModuleIcon } from "@/lib/config/icons";
 import { getAccessibleModules } from "@/lib/permissions";
 
@@ -53,10 +53,10 @@ export default function DashboardLayout({
     );
   }
 
-  const renderNavSection = (items: typeof ADMIN_MODULES) =>
+  const renderNavSection = (items: ModuleTab[]) =>
     items.map((item) => {
       const Icon = getModuleIcon(item.id);
-      const isActive = pathname === item.path;
+      const isActive = pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path));
 
       return (
         <Link
@@ -161,8 +161,12 @@ export default function DashboardLayout({
 
         {/* Sidebar Navigation */}
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 1rem", display: "flex", flexDirection: "column", gap: "0.5rem", overflowX: "hidden" }}>
+          
+          {/* Common Modules */}
+          {renderNavSection(COMMON_MODULES)}
+
           {!collapsed && adminItems.length > 0 && (
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: "0.5rem", paddingLeft: "0.5rem", marginTop: "1rem" }}>
               Administration
             </div>
           )}

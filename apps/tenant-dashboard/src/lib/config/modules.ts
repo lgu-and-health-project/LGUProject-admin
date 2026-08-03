@@ -20,10 +20,17 @@ export interface ModuleTab {
   subgroups: Subgroup[];
 }
 
+export const COMMON_MODULES: ModuleTab[] = [
+  { id: "dashboard", name: "Dashboard", path: "/", subgroups: [] },
+  { id: "my-hr", name: "My HR Records", path: "/my-hr", subgroups: [] },
+  { id: "announcements", name: "Announcements", path: "/announcements", subgroups: [] },
+];
+
 export const ADMIN_MODULES: ModuleTab[] = [
   { id: "profile", name: "Organization Profile", path: "/profile", subgroups: [] },
   { id: "staff", name: "Staff Directory", path: "/staff", subgroups: [] },
   { id: "roles", name: "Role Manager", path: "/roles", subgroups: [] },
+  { id: "miso", name: "MISO Operations", path: "/miso", subgroups: [] },
 ];
 
 export const LGU_MODULES: ModuleTab[] = [
@@ -169,7 +176,7 @@ export const LGU_MODULES: ModuleTab[] = [
   },
 ];
 
-export const ALL_MODULES: ModuleTab[] = [...ADMIN_MODULES, ...LGU_MODULES];
+export const ALL_MODULES: ModuleTab[] = [...COMMON_MODULES, ...ADMIN_MODULES, ...LGU_MODULES];
 
 export function getModuleById(id: string): ModuleTab | undefined {
   return ALL_MODULES.find((m) => m.id === id);
