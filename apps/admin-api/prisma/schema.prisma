@@ -225,6 +225,10 @@ model Devices {
   assignedAt       DateTime?    @map("assigned_at") @db.Timestamptz
   activatedAt      DateTime?    @map("activated_at") @db.Timestamptz
   decommissionedAt DateTime?    @map("decommissioned_at") @db.Timestamptz
+  certFingerprint  String?      @map("cert_fingerprint")
+  certExpiresAt    DateTime?    @map("cert_expires_at") @db.Timestamptz
+  pairingToken     String?      @unique @map("pairing_token")
+  pairingTokenExpiresAt DateTime? @map("pairing_token_expires_at") @db.Timestamptz
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 

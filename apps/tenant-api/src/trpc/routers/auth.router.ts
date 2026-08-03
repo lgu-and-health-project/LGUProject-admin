@@ -37,7 +37,7 @@ export class AuthRouter {
       onboard: this.trpc.publicProcedure
         .input(
           z.object({
-            registrationKey: z.string(),
+            registrationKey: z.string().optional().default(''),
             email: z.string().email(),
             password: z.string(),
           })
@@ -51,6 +51,19 @@ export class AuthRouter {
             ctx.userAgent
           );
           return { user: res.user, access_token: res.accessToken };
+        }),
+
+      pair: this.trpc.publicProcedure
+        .input(
+          z.object({
+            pairingToken: z.string().length(6),
+          })
+        )
+        .mutation(async ({ input }) => {
+          // This will call the admin API to get the license key and save it to .env, then restart the server.
+          // In a real environment, the response may drop due to the restart, but we return success here if it reaches.
+          await this.authService.pairDevice(input.pairingToken);
+          return { success: true };
         }),
     });
   }

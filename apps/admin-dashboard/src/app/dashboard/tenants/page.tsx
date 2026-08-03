@@ -297,30 +297,32 @@ export default function TenantsPage() {
             Register and manage LGUs and their system administrators.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setFormData({
-              psgcCode: "",
-              name: "",
-              level: "municipality",
-              sysadminEmail: "",
-            });
-            setIsEditingCode(false);
-            setDraftCode("");
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Register LGU Tenant
-        </button>
-        <button
-          onClick={() => setIsProvisionModalOpen(true)}
-          className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20"
-        >
-          <Server className="w-4 h-4 mr-2" />
-          Provision & Bind Device
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setFormData({
+                psgcCode: "",
+                name: "",
+                level: "municipality",
+                sysadminEmail: "",
+              });
+              setIsEditingCode(false);
+              setDraftCode("");
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Register LGU Tenant
+          </button>
+          <button
+            onClick={() => setIsProvisionModalOpen(true)}
+            className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20"
+          >
+            <Server className="w-4 h-4 mr-2" />
+            Provision & Bind Device
+          </button>
+        </div>
       </div>
 
       <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">

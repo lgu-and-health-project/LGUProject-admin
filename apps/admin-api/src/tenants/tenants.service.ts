@@ -192,54 +192,10 @@ export class TenantsService {
    * see InternalTenantsController) to check whether a registration key is
    * still valid before letting first-time setup proceed.
    */
-  async verifyRegistrationKey(registrationKey: string) {
-    const license = await this.prisma.licenses.findUnique({
-      where: { registrationKey },
-      include: {
-        tenant: { include: { psgcLocation: true } },
-      },
-    });
 
-    if (!license || license.status !== LicenseStatus.active) {
-      return { valid: false as const, reason: 'NOT_FOUND' as const };
-    }
-
-    if (license.expiresAt && license.expiresAt < new Date()) {
-      return { valid: false as const, reason: 'NOT_FOUND' as const };
-    }
-
-    const tenant = license.tenant;
-
-    if (
-      tenant.status !== TenantStatus.active &&
-      tenant.status !== TenantStatus.pending_setup
-    ) {
-      return { valid: false as const, reason: 'SUSPENDED' as const, tenant };
-    }
-
-    return {
-      valid: true as const,
-      tenant,
-      expectedEmail: tenant.sysadminEmail,
-    };
-  }
-
-  async completeSetup(registrationKey: string) {
-    const license = await this.prisma.licenses.findUnique({
-      where: { registrationKey },
-    });
-    if (!license) throw new NotFoundException('License not found');
-
-    if (license.status !== LicenseStatus.active) {
-      throw new NotFoundException('License is no longer active');
-    }
-
-    if (license.expiresAt && license.expiresAt < new Date()) {
-      throw new NotFoundException('License has expired');
-    }
-
+  async completeSetup(tenantId: string) {
     return this.prisma.lguTenants.update({
-      where: { tenantId: license.tenantId },
+      where: { tenantId },
       data: {
         status: TenantStatus.active,
         sysadminVerifiedAt: new Date(),
@@ -247,25 +203,14 @@ export class TenantsService {
     });
   }
 
-  async recordHeartbeat(registrationKey: string) {
-    const license = await this.prisma.licenses.findUnique({
-      where: { registrationKey },
-      include: { device: true },
-    });
-    
-    if (!license) throw new NotFoundException('License not found');
-    
-    if (license.status !== LicenseStatus.active) {
-      throw new ForbiddenException('License is not active');
-    }
-    
+  async recordHeartbeat(license: any, device: any) {
     const updates: any = { 
       lastHeartbeatAt: new Date(),
       agentReachable: true,
       backendHealthy: true,
     };
     
-    if (license.device.status === DeviceStatus.ASSIGNED) {
+    if (device.status === DeviceStatus.ASSIGNED) {
       updates.status = DeviceStatus.ACTIVE;
       updates.activatedAt = new Date();
     }
@@ -280,7 +225,7 @@ export class TenantsService {
         action: AuditAction.activate_device,
         targetType: AuditTargetType.device,
         targetId: license.deviceId,
-        metadata: { hardwareSerial: license.device.hardwareSerial, activatedVia: 'heartbeat' },
+        metadata: { hardwareSerial: device.hardwareSerial, activatedVia: 'heartbeat' },
       });
     }
 

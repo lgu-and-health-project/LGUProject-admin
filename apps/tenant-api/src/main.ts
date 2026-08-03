@@ -20,6 +20,18 @@ async function bootstrap() {
   const trpcService = app.get(TrpcService);
   const trpcAppRouter = app.get(TrpcAppRouter);
 
+  // Check for pairing token in CLI args
+  const pairArg = process.argv.find(arg => arg.startsWith('--pair='));
+  if (pairArg) {
+    const token = pairArg.split('=')[1];
+    if (token && token.length === 6) {
+      const adminApiService = app.get(require('./modules/admin-api/admin-api.service').AdminApiService);
+      console.log(`Pairing device via CLI using token: ${token}`);
+      await adminApiService.pairDeviceAndSave(token);
+      return; // The service calls process.exit(0)
+    }
+  }
+
   app.use(
     '/trpc',
     createExpressMiddleware({

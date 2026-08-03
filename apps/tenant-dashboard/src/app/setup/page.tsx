@@ -42,6 +42,16 @@ function SetupForm() {
     setLoading(true);
 
     try {
+      if (registrationKey.length === 6) {
+        // Pairing flow
+        await trpc.auth.pair.mutate({ pairingToken: registrationKey });
+        setError("Device paired successfully! The server is restarting to apply credentials. This page will reload shortly...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+        return;
+      }
+
       const res = await trpc.auth.onboard.mutate({
         registrationKey,
         email,
@@ -50,7 +60,6 @@ function SetupForm() {
       if (res.access_token) {
         localStorage.setItem("access_token", res.access_token);
       }
-
 
       router.push("/");
     } catch (err: any) {
@@ -83,19 +92,18 @@ function SetupForm() {
       <form className="login-form" onSubmit={handleSetup}>
         <div className="input-group">
           <label className="input-label" htmlFor="registrationKey">
-            Registration Key
+            Pairing Token (Required for new device) or Registration Key
           </label>
           <input
             id="registrationKey"
             type="text"
             name="registrationKey"
             className="login-input"
-            placeholder="Enter your 36-character key"
+            placeholder="Enter your 6-character token or leave blank if pre-configured"
             value={registrationKey}
-            onChange={(e) => !isKeyFromUrl && setRegistrationKey(e.target.value)}
+            onChange={(e) => !isKeyFromUrl && setRegistrationKey(e.target.value.toUpperCase())}
             readOnly={isKeyFromUrl}
             style={isKeyFromUrl ? { opacity: 0.7, cursor: "not-allowed", backgroundColor: "#f9fafb" } : {}}
-            required
           />
         </div>
         <div className="input-group">

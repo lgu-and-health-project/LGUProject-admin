@@ -142,6 +142,10 @@ export class AuthService {
     return this.buildAuthPayload(user);
   }
 
+  async pairDevice(pairingToken: string) {
+    return this.adminApiService.pairDeviceAndSave(pairingToken);
+  }
+
   async onboard(
     registrationKey: string,
     email: string,
@@ -149,7 +153,12 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const adminResponse = await this.adminApiService.verifyRegistrationKey(registrationKey);
+    const activeKey = await this.adminApiService.getRegistrationKey() || registrationKey;
+    if (!activeKey) {
+      throw new UnauthorizedException('Registration key is required for initial setup.');
+    }
+
+    const adminResponse = await this.adminApiService.verifyRegistrationKey(activeKey);
 
     if (!adminResponse.valid) {
       if (adminResponse.reason === 'NOT_FOUND') {
@@ -177,7 +186,7 @@ export class AuthService {
           code: tenantInfo.psgcCode,
           name: tenantInfo.name,
           level: tenantInfo.level,
-          registrationKey,
+          registrationKey: activeKey,
           status: 'active',
         },
       });
@@ -240,7 +249,7 @@ export class AuthService {
       include: { role: true },
     });
 
-    await this.adminApiService.completeSetup(registrationKey);
+    await this.adminApiService.completeSetup(activeKey);
 
     await this.prisma.auditLog.create({
       data: {

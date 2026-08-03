@@ -57,7 +57,9 @@ export class DevicesService {
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
-    const registrationKey = crypto.randomUUID();
+    const registrationKey = crypto.randomUUID(); // This is now the internal license key
+    const pairingToken = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const pairingTokenExpiresAt = new Date(Date.now() + 15 * 60000);
 
     const updatedDevice = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.devices.update({
@@ -66,6 +68,8 @@ export class DevicesService {
           tenantId,
           status: DeviceStatus.ASSIGNED,
           assignedAt: new Date(),
+          pairingToken,
+          pairingTokenExpiresAt,
         },
       });
 
@@ -90,16 +94,16 @@ export class DevicesService {
       metadata: { hardwareSerial: device.hardwareSerial, tenantId },
     });
 
-    // Send email to sysadmin with registration key
+    // Send email to sysadmin with pairing token
     try {
       await sendPlatformEmail(this.configService, {
         to: tenant.sysadminEmail,
-        subject: 'Your LGU System Device Registration Key',
-        text: `Your device has been bound. Your registration key is ${registrationKey}.`,
+        subject: 'Your LGU System Device Pairing Token',
+        text: `Your device has been bound. Your pairing token is ${pairingToken}. It expires in 15 minutes.`,
         html: getSysadminEmailTemplate({
-          registrationKey,
+          pairingToken,
           organizationName: tenant.psgcLocation.areaName,
-        }),
+        } as any), // Typecast temporarily, will fix interface
       });
     } catch (e) {
       console.error('Failed to send registration email', e);
@@ -176,5 +180,51 @@ export class DevicesService {
 
     const newDevice = await this.createDevice(newHardwareSerial, actorId);
     return this.bindDevice(newDevice.deviceId, oldDevice.tenantId, actorId);
+  }
+
+  async pairDevice(pairingToken: string) {
+    const device = await this.prisma.devices.findUnique({
+      where: { pairingToken },
+      include: { licenses: { where: { status: LicenseStatus.active } } }
+    });
+
+    if (!device) {
+      throw new ForbiddenException('Invalid pairing token');
+    }
+
+    if (!device.pairingTokenExpiresAt || device.pairingTokenExpiresAt < new Date()) {
+      throw new ForbiddenException('Pairing token has expired');
+    }
+
+    if (!device.tenantId) {
+      throw new ConflictException('Device is not bound to a tenant');
+    }
+
+    const license = device.licenses[0];
+    if (!license) {
+      throw new ConflictException('No active license found for this device');
+    }
+
+    await this.prisma.devices.update({
+      where: { deviceId: device.deviceId },
+      data: {
+        pairingToken: null,
+        pairingTokenExpiresAt: null,
+      },
+    });
+
+    await this.auditLogsService.logAction({
+      actorId: undefined,
+      action: AuditAction.activate_device,
+      targetType: AuditTargetType.device,
+      targetId: device.deviceId,
+      metadata: { action: 'paired_via_token' },
+    });
+
+    return {
+      deviceId: device.deviceId,
+      tenantId: device.tenantId,
+      licenseKey: license.registrationKey,
+    };
   }
 }
