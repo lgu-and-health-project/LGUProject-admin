@@ -30,5 +30,17 @@ services:
 
 
 
+  tenant-dashboard:
+    build:
+      context: .
+      dockerfile: apps/tenant-dashboard/Dockerfile
+    ports:
+      - "4002:4002"
+    environment:
+      - VITE_API_URL=http://localhost:4001
+    depends_on:
+      - tenant-api
+    restart: unless-stopped
+
 volumes:
   tenant_pgdata:
