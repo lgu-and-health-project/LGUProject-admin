@@ -6,7 +6,11 @@ import { CreateAttendanceDto } from './dto/create-attendance.dto';
 export class HrisService {
   constructor(private prisma: PrismaService) {}
 
-  async logAttendance(orgCode: string, staffId: string, dto: CreateAttendanceDto) {
+  async logAttendance(
+    orgCode: string,
+    staffId: string,
+    dto: CreateAttendanceDto,
+  ) {
     return this.prisma.attendanceLog.create({
       data: {
         staffUserId: staffId,
@@ -28,7 +32,7 @@ export class HrisService {
     return this.prisma.attendanceLog.findMany({
       where: { staffUser: { orgCode } },
       orderBy: { timestamp: 'desc' },
-      include: { staffUser: { select: { name: true, office: true } } }
+      include: { staffUser: { select: { name: true, office: true } } },
     });
   }
 
@@ -39,7 +43,14 @@ export class HrisService {
     });
   }
 
-  async createLeaveRequest(orgCode: string, staffId: string, type: string, startDate: Date, endDate: Date, reason: string) {
+  async createLeaveRequest(
+    orgCode: string,
+    staffId: string,
+    type: string,
+    startDate: Date,
+    endDate: Date,
+    reason: string,
+  ) {
     return this.prisma.leaveRequest.create({
       data: {
         staffUserId: staffId,
@@ -47,8 +58,8 @@ export class HrisService {
         startDate,
         endDate,
         reason,
-        status: 'pending'
-      }
+        status: 'pending',
+      },
     });
   }
 

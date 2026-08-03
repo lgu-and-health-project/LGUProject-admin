@@ -5,6 +5,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Module({
   controllers: [MisoController],
-  providers: [MisoService, PrismaService]
+  providers: [MisoService, PrismaService],
 })
 export class MisoModule {}

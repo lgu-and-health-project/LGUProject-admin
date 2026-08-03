@@ -1,4 +1,9 @@
-import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AddStaffInput } from './dto/add-staff.input';
 import * as bcrypt from 'bcrypt';
@@ -30,12 +35,16 @@ export class StaffManagementService {
       throw new ForbiddenException('Only sysadmin can add staff');
     }
 
-    const existingUser = await this.prisma.staffUserCredentials.findUnique({ where: { email: dto.email } });
+    const existingUser = await this.prisma.staffUserCredentials.findUnique({
+      where: { email: dto.email },
+    });
     if (existingUser) {
       throw new BadRequestException('A user with this email already exists');
     }
 
-    const role = await this.prisma.role.findUnique({ where: { id: dto.roleId } });
+    const role = await this.prisma.role.findUnique({
+      where: { id: dto.roleId },
+    });
     if (!role || role.orgCode !== user.orgCode) {
       throw new NotFoundException('Role not found for this organization');
     }
@@ -57,8 +66,8 @@ export class StaffManagementService {
           create: {
             email: dto.email,
             passwordHash,
-          }
-        }
+          },
+        },
       },
     });
   }

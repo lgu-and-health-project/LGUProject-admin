@@ -5,6 +5,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Module({
   controllers: [AnnouncementsController],
-  providers: [AnnouncementsService, PrismaService]
+  providers: [AnnouncementsService, PrismaService],
 })
 export class AnnouncementsModule {}

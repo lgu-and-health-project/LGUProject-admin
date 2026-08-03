@@ -92,7 +92,9 @@ export class TrpcService {
     if (!token) return { user: null, reqIp, userAgent };
 
     try {
-      const payload = await this.jwtService.verifyAsync<any>(token);
+      const payload = await this.jwtService.verifyAsync<
+        JwtPayload & { sub: string }
+      >(token);
       return {
         user: {
           userId: payload.sub,

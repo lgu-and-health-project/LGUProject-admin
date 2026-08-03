@@ -16,7 +16,7 @@ export class AnnouncementsService {
         targetType: dto.targetType ?? 'all',
         targetId: dto.targetId,
       },
-      include: { author: { select: { name: true, email: true } } }
+      include: { author: { select: { name: true, email: true } } },
     });
   }
 
@@ -24,7 +24,9 @@ export class AnnouncementsService {
     return this.prisma.announcement.findMany({
       where: { orgCode },
       orderBy: { createdAt: 'desc' },
-      include: { author: { select: { name: true, email: true, baseRole: true } } }
+      include: {
+        author: { select: { name: true, email: true, baseRole: true } },
+      },
     });
   }
 

@@ -19,10 +19,14 @@ export class AuthService {
    * directly, so any role — not just sysadmin — gets working permissions,
    * and adding a role is a data change, not a deploy.
    */
-  async getPermissionsForRole(roleId: string | null): Promise<ModulePermission[]> {
+  async getPermissionsForRole(
+    roleId: string | null,
+  ): Promise<ModulePermission[]> {
     if (!roleId) return [];
 
-    const rows = await this.prisma.rolePermission.findMany({ where: { roleId } });
+    const rows = await this.prisma.rolePermission.findMany({
+      where: { roleId },
+    });
 
     // Collapse division-scoped rows into their parent module for the nav-level
     // permission check (module access = true if the role has ANY grant on it).
@@ -56,7 +60,7 @@ export class AuthService {
     departmentId: string | null;
     roleId: string | null;
     role: { roleName: string } | null;
-    org?: { name: string; level: string; } | null;
+    org?: { name: string; level: string } | null;
   }) {
     const permissions = await this.getPermissionsForRole(user.roleId);
     let orgData = user.org;
@@ -102,28 +106,53 @@ export class AuthService {
       where: { email },
       include: { staffUser: { include: { role: true, org: true } } },
     });
-    
+
     const user = cred?.staffUser;
 
     // Strictly enforce that user exists, is active, has a valid password hash, and belongs to an active org.
-    if (!cred || !user || user.status !== 'active' || !cred.passwordHash || cred.passwordHash.length < 10) {
+    if (
+      !cred ||
+      !user ||
+      user.status !== 'active' ||
+      !cred.passwordHash ||
+      cred.passwordHash.length < 10
+    ) {
       await this.prisma.auditLog.create({
-        data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
+        data: {
+          actorEmail: email,
+          action: 'login_failed',
+          ipAddress,
+          userAgent,
+        },
       });
-      throw new UnauthorizedException('Invalid credentials or account pending setup');
+      throw new UnauthorizedException(
+        'Invalid credentials or account pending setup',
+      );
     }
 
     if (user.org && user.org.status !== 'active') {
       await this.prisma.auditLog.create({
-        data: { actorEmail: email, action: 'login_failed_org_inactive', ipAddress, userAgent },
+        data: {
+          actorEmail: email,
+          action: 'login_failed_org_inactive',
+          ipAddress,
+          userAgent,
+        },
       });
-      throw new UnauthorizedException('Organization account is suspended or pending setup');
+      throw new UnauthorizedException(
+        'Organization account is suspended or pending setup',
+      );
     }
 
     const valid = await bcrypt.compare(password, cred.passwordHash);
     if (!valid) {
       await this.prisma.auditLog.create({
-        data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
+        data: {
+          actorEmail: email,
+          action: 'login_failed',
+          ipAddress,
+          userAgent,
+        },
       });
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -153,12 +182,16 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const activeKey = await this.adminApiService.getRegistrationKey() || registrationKey;
+    const activeKey =
+      (await this.adminApiService.getRegistrationKey()) || registrationKey;
     if (!activeKey) {
-      throw new UnauthorizedException('Registration key is required for initial setup.');
+      throw new UnauthorizedException(
+        'Registration key is required for initial setup.',
+      );
     }
 
-    const adminResponse = await this.adminApiService.verifyRegistrationKey(activeKey);
+    const adminResponse: any =
+      await this.adminApiService.verifyRegistrationKey(activeKey);
 
     if (!adminResponse.valid) {
       if (adminResponse.reason === 'NOT_FOUND') {
@@ -174,12 +207,16 @@ export class AuthService {
       adminResponse.expectedEmail &&
       email.toLowerCase() !== adminResponse.expectedEmail.toLowerCase()
     ) {
-      throw new UnauthorizedException('Email does not match the registered sysadmin email for this key');
+      throw new UnauthorizedException(
+        'Email does not match the registered sysadmin email for this key',
+      );
     }
 
     const tenantInfo = adminResponse.tenant;
 
-    let org = await this.prisma.organization.findUnique({ where: { code: tenantInfo.psgcCode } });
+    let org = await this.prisma.organization.findUnique({
+      where: { code: tenantInfo.psgcCode },
+    });
     if (!org) {
       org = await this.prisma.organization.create({
         data: {
@@ -195,11 +232,18 @@ export class AuthService {
     }
 
     let dept = await this.prisma.department.findFirst({
-      where: { orgCode: org.code, name: 'Management Information Systems Office' },
+      where: {
+        orgCode: org.code,
+        name: 'Management Information Systems Office',
+      },
     });
     if (!dept) {
       dept = await this.prisma.department.create({
-        data: { orgCode: org.code, name: 'Management Information Systems Office', category: 'custom' },
+        data: {
+          orgCode: org.code,
+          name: 'Management Information Systems Office',
+          category: 'custom',
+        },
       });
     }
 
@@ -211,13 +255,35 @@ export class AuthService {
     });
     if (!sysadminRole) {
       sysadminRole = await this.prisma.role.create({
-        data: { orgCode: org.code, roleName: 'sysadmin', isSystemDefault: true },
+        data: {
+          orgCode: org.code,
+          roleName: 'sysadmin',
+          isSystemDefault: true,
+        },
       });
-      
+
       const permissions = [
-        { module: 'profile', canCreate: false, canRead: true, canUpdate: false, canDelete: false },
-        { module: 'staff', canCreate: true, canRead: true, canUpdate: true, canDelete: true },
-        { module: 'roles', canCreate: true, canRead: true, canUpdate: true, canDelete: true },
+        {
+          module: 'profile',
+          canCreate: false,
+          canRead: true,
+          canUpdate: false,
+          canDelete: false,
+        },
+        {
+          module: 'staff',
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        },
+        {
+          module: 'roles',
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        },
       ];
 
       await this.prisma.rolePermission.createMany({
@@ -243,8 +309,8 @@ export class AuthService {
           create: {
             email,
             passwordHash,
-          }
-        }
+          },
+        },
       },
       include: { role: true },
     });

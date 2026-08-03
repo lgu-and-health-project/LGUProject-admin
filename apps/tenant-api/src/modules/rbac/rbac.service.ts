@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface RequestUser {
@@ -95,7 +99,17 @@ export class RbacService {
     };
   }
 
-  async createRole(user: RequestUser, roleName: string, permissions: any[]) {
+  async createRole(
+    user: RequestUser,
+    roleName: string,
+    permissions: {
+      module: string;
+      canCreate: boolean;
+      canRead: boolean;
+      canUpdate: boolean;
+      canDelete: boolean;
+    }[],
+  ) {
     if (user.role !== 'sysadmin') {
       throw new ForbiddenException('Only sysadmin can create roles');
     }
@@ -106,7 +120,7 @@ export class RbacService {
         roleName: roleName,
         isSystemDefault: false,
         permissions: {
-          create: permissions.map(p => ({
+          create: permissions.map((p) => ({
             module: p.module,
             canCreate: p.canCreate,
             canRead: p.canRead,

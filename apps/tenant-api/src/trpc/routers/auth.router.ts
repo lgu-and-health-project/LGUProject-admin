@@ -12,43 +12,42 @@ export class AuthRouter {
 
   get router() {
     return this.trpc.router({
-      me: this.trpc.protectedProcedure
-        .query(async ({ ctx }) => {
-          return { user: ctx.user };
-        }),
-        
+      me: this.trpc.protectedProcedure.query(({ ctx }) => {
+        return { user: ctx.user };
+      }),
+
       login: this.trpc.publicProcedure
         .input(
           z.object({
             email: z.string().email(),
             password: z.string(),
-          })
+          }),
         )
         .mutation(async ({ input, ctx }) => {
           const res = await this.authService.login(
-            input.email, 
-            input.password, 
-            ctx.reqIp, 
-            ctx.userAgent
+            input.email,
+            input.password,
+            ctx.reqIp,
+            ctx.userAgent,
           );
           return { user: res.user, access_token: res.accessToken };
         }),
-        
+
       onboard: this.trpc.publicProcedure
         .input(
           z.object({
             registrationKey: z.string().optional().default(''),
             email: z.string().email(),
             password: z.string(),
-          })
+          }),
         )
         .mutation(async ({ input, ctx }) => {
           const res = await this.authService.onboard(
-            input.registrationKey, 
-            input.email, 
-            input.password, 
-            ctx.reqIp, 
-            ctx.userAgent
+            input.registrationKey,
+            input.email,
+            input.password,
+            ctx.reqIp,
+            ctx.userAgent,
           );
           return { user: res.user, access_token: res.accessToken };
         }),
@@ -57,7 +56,7 @@ export class AuthRouter {
         .input(
           z.object({
             pairingToken: z.string().length(6),
-          })
+          }),
         )
         .mutation(async ({ input }) => {
           // This will call the admin API to get the license key and save it to .env, then restart the server.

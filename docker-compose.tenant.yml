@@ -28,17 +28,7 @@ services:
       - tenant-db
     restart: unless-stopped
 
-  tenant-dashboard:
-    build:
-      context: .
-      dockerfile: apps/tenant-dashboard/Dockerfile
-    environment:
-      - NEXT_PUBLIC_API_URL=http://<REPLACE_WITH_LOCAL_IP>:4001
-    ports:
-      - "3001:80"
-    depends_on:
-      - tenant-api
-    restart: unless-stopped
+
 
 volumes:
   tenant_pgdata:

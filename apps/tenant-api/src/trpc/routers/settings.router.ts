@@ -5,7 +5,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class SettingsRouter {
-  constructor(private trpc: TrpcService, private prisma: PrismaService) {}
+  constructor(
+    private trpc: TrpcService,
+    private prisma: PrismaService,
+  ) {}
 
   get router() {
     return this.trpc.router({
@@ -24,19 +27,19 @@ export class SettingsRouter {
             lat: z.number(),
             lng: z.number(),
             radius: z.number().min(10),
-          })
+          }),
         )
         .mutation(async ({ input }) => {
           const org = await this.prisma.organization.findFirst();
           if (!org) throw new Error('No organization found');
-          
+
           return this.prisma.organization.update({
             where: { code: org.code },
             data: {
               geofenceLat: input.lat,
               geofenceLng: input.lng,
               geofenceRadius: input.radius,
-            }
+            },
           });
         }),
     });

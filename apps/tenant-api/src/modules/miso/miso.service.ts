@@ -10,44 +10,52 @@ export class MisoService {
       where: { orgCode },
       orderBy: { createdAt: 'desc' },
       include: {
-        role: { select: { roleName: true } }
-      }
+        role: { select: { roleName: true } },
+      },
     });
   }
 
   async verifyStaff(orgCode: string, staffId: string) {
-    const user = await this.prisma.staffUser.findFirst({ where: { id: staffId, orgCode } });
+    const user = await this.prisma.staffUser.findFirst({
+      where: { id: staffId, orgCode },
+    });
     if (!user) throw new NotFoundException('Staff not found');
 
     return this.prisma.staffUser.update({
       where: { id: staffId },
-      data: { status: 'active' } // Set to active once verified
+      data: { status: 'active' }, // Set to active once verified
     });
   }
 
   async suspendStaff(orgCode: string, staffId: string) {
-    const user = await this.prisma.staffUser.findFirst({ where: { id: staffId, orgCode } });
+    const user = await this.prisma.staffUser.findFirst({
+      where: { id: staffId, orgCode },
+    });
     if (!user) throw new NotFoundException('Staff not found');
 
     return this.prisma.staffUser.update({
       where: { id: staffId },
-      data: { status: 'suspended' }
+      data: { status: 'suspended' },
     });
   }
 
   async updateStaffRole(orgCode: string, staffId: string, roleId: string) {
-    const user = await this.prisma.staffUser.findFirst({ where: { id: staffId, orgCode } });
+    const user = await this.prisma.staffUser.findFirst({
+      where: { id: staffId, orgCode },
+    });
     if (!user) throw new NotFoundException('Staff not found');
 
-    const role = await this.prisma.role.findFirst({ where: { id: roleId, orgCode } });
+    const role = await this.prisma.role.findFirst({
+      where: { id: roleId, orgCode },
+    });
     if (!role) throw new NotFoundException('Role not found');
 
     return this.prisma.staffUser.update({
       where: { id: staffId },
-      data: { 
+      data: {
         roleId: role.id,
-        baseRole: role.roleName // Kept in sync with role
-      }
+        baseRole: role.roleName, // Kept in sync with role
+      },
     });
   }
 
