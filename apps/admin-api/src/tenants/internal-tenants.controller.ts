@@ -40,4 +40,9 @@ export class InternalTenantsController {
   async completeSetup(@Param('registrationKey') registrationKey: string) {
     return this.tenantsService.completeSetup(registrationKey);
   }
+
+  @Post('heartbeat/:registrationKey')
+  async heartbeat(@Param('registrationKey') registrationKey: string) {
+    return this.tenantsService.recordHeartbeat(registrationKey);
+  }
 }

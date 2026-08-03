@@ -21,13 +21,20 @@ export interface TrpcContext {
 
 function mapHttpStatus(status: number) {
   switch (status) {
-    case 400: return 'BAD_REQUEST' as const;
-    case 401: return 'UNAUTHORIZED' as const;
-    case 403: return 'FORBIDDEN' as const;
-    case 404: return 'NOT_FOUND' as const;
-    case 409: return 'CONFLICT' as const;
-    case 429: return 'TOO_MANY_REQUESTS' as const;
-    default: return 'INTERNAL_SERVER_ERROR' as const;
+    case 400:
+      return 'BAD_REQUEST' as const;
+    case 401:
+      return 'UNAUTHORIZED' as const;
+    case 403:
+      return 'FORBIDDEN' as const;
+    case 404:
+      return 'NOT_FOUND' as const;
+    case 409:
+      return 'CONFLICT' as const;
+    case 429:
+      return 'TOO_MANY_REQUESTS' as const;
+    default:
+      return 'INTERNAL_SERVER_ERROR' as const;
   }
 }
 
@@ -86,7 +93,7 @@ export class TrpcService {
 
     try {
       const payload = await this.jwtService.verifyAsync<any>(token);
-      return { 
+      return {
         user: {
           userId: payload.sub,
           email: payload.email,
@@ -96,7 +103,7 @@ export class TrpcService {
           departmentId: payload.departmentId,
         },
         reqIp,
-        userAgent
+        userAgent,
       };
     } catch {
       return { user: null, reqIp, userAgent };

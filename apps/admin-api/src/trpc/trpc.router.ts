@@ -3,6 +3,7 @@ import { TrpcService } from './trpc.service';
 import { AdminRouter } from './routers/admin.router';
 import { TenantRouter } from './routers/tenant.router';
 import { AuditLogRouter } from './routers/audit-log.router';
+import { DeviceRouter } from './routers/device.router';
 
 @Injectable()
 export class TrpcAppRouter {
@@ -11,6 +12,7 @@ export class TrpcAppRouter {
     private adminRouter: AdminRouter,
     private tenantRouter: TenantRouter,
     private auditLogRouter: AuditLogRouter,
+    private deviceRouter: DeviceRouter,
   ) {}
 
   get appRouter() {
@@ -18,6 +20,7 @@ export class TrpcAppRouter {
       admin: this.adminRouter.router,
       tenant: this.tenantRouter.router,
       auditLog: this.auditLogRouter.router,
+      device: this.deviceRouter.router,
     });
   }
 }

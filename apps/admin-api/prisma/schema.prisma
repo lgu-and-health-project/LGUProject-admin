@@ -59,6 +59,12 @@ enum AuditAction {
   reissue_license
   revoke_license
   sync_psgc
+  provision_device
+  bind_device
+  activate_device
+  suspend_device
+  decommission_device
+  reissue_device_license
 }
 
 enum AuditTargetType {
@@ -67,6 +73,7 @@ enum AuditTargetType {
   license
   session
   psgc
+  device
 }
 
 enum AuditStatus {
@@ -87,12 +94,20 @@ enum IdentifierType {
   PHONE
 }
 
+enum DeviceStatus {
+  PROVISIONED
+  ASSIGNED
+  ACTIVE
+  SUSPENDED
+  DECOMMISSIONED
+}
+
 // ====================================
 // For Administrators/Registrations
 // ====================================
 model SuperAdmins {
   superadminId    String        @id @default(uuid()) @map("superadmin_id") @db.Uuid
-  email           String        // No longer unique, kept for history/display
+  email           String // No longer unique, kept for history/display
   fullName        String        @map("full_name")
   role            AdminRole
   status          AdminStatus
@@ -116,13 +131,13 @@ model SuperAdmins {
 }
 
 model SuperAdminCredentials {
-  credentialId   String      @id @default(uuid()) @map("credential_id") @db.Uuid
-  superadminId   String      @unique @map("superadmin_id") @db.Uuid
-  superadmin     SuperAdmins @relation(fields: [superadminId], references: [superadminId], onDelete: Cascade)
-  email          String      @unique
-  passwordHash   String      @map("password_hash")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  credentialId String      @id @default(uuid()) @map("credential_id") @db.Uuid
+  superadminId String      @unique @map("superadmin_id") @db.Uuid
+  superadmin   SuperAdmins @relation(fields: [superadminId], references: [superadminId], onDelete: Cascade)
+  email        String      @unique
+  passwordHash String      @map("password_hash")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 }
 
 model PsgcLocations {
@@ -179,18 +194,41 @@ model LguTenants {
   updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   licenses Licenses[]
+  devices  Devices[]
 }
 
 model Licenses {
   licenseId       String        @id @default(uuid()) @map("license_id") @db.Uuid
   tenantId        String        @map("tenant_id") @db.Uuid
   tenant          LguTenants    @relation(fields: [tenantId], references: [tenantId])
+  deviceId        String        @unique @map("device_id") @db.Uuid // add this
+  device          Devices       @relation(fields: [deviceId], references: [deviceId])
   registrationKey String        @unique @map("registration_key")
   issuedAt        DateTime      @map("issued_at") @db.Timestamptz
   expiresAt       DateTime?     @map("expires_at") @db.Timestamptz
   status          LicenseStatus
   revokedAt       DateTime?     @map("revoked_at") @db.Timestamptz
   revokedReason   String?       @map("revoked_reason")
+}
+
+model Devices {
+  deviceId         String       @id @default(uuid()) @map("device_id") @db.Uuid
+  tenantId         String?      @map("tenant_id") @db.Uuid // nullable: unbound in office
+  tenant           LguTenants?  @relation(fields: [tenantId], references: [tenantId])
+  hardwareSerial   String?      @unique @map("hardware_serial")
+  status           DeviceStatus @default(PROVISIONED)
+  agentVersion     String?      @map("agent_version")
+  appVersion       String?      @map("app_version")
+  agentReachable   Boolean      @default(false) @map("agent_reachable")
+  backendHealthy   Boolean      @default(false) @map("backend_healthy")
+  lastHeartbeatAt  DateTime?    @map("last_heartbeat_at") @db.Timestamptz
+  assignedAt       DateTime?    @map("assigned_at") @db.Timestamptz
+  activatedAt      DateTime?    @map("activated_at") @db.Timestamptz
+  decommissionedAt DateTime?    @map("decommissioned_at") @db.Timestamptz
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  licenses Licenses[]
 }
 
 model SuperAdminAuditLogs {

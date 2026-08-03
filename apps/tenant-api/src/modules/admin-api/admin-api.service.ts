@@ -83,4 +83,24 @@ export class AdminApiService {
     }
     this.logger.log('Polling tenant status complete.');
   }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async pingHeartbeat() {
+    this.logger.log('Sending heartbeat to admin-api...');
+    const organizations = await this.prisma.organization.findMany();
+    
+    for (const org of organizations) {
+      if (!org.registrationKey) {
+        continue;
+      }
+      
+      try {
+        const url = `${this.adminApiUrl}/internal/tenants/heartbeat/${org.registrationKey}`;
+        await firstValueFrom(this.httpService.post(url));
+        this.logger.log(`Heartbeat sent for organization ${org.code}.`);
+      } catch (error) {
+        this.logger.error(`Error sending heartbeat for organization ${org.code}: ${error.message}`);
+      }
+    }
+  }
 }
