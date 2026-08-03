@@ -103,7 +103,6 @@ export class TenantsService {
       },
     });
 
-    const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
     
     // Fetch the full hierarchy to build the proper organization name
     const psgcHierarchy = await this.prisma.psgcLocations.findUnique({
@@ -138,10 +137,9 @@ export class TenantsService {
       await sendPlatformEmail(this.configService, {
         to: data.sysadminEmail,
         subject: 'Your System Administrator Account has been created',
-        text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
+        text: `Your registration key is ${registrationKey}. Please follow the instructions to boot up your Node hardware and enter this key.`,
         html: getSysadminEmailTemplate({
           registrationKey,
-          setupLink,
           organizationName,
         }),
       });
