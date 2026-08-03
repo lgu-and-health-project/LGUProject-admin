@@ -201,8 +201,8 @@ model Licenses {
   licenseId       String        @id @default(uuid()) @map("license_id") @db.Uuid
   tenantId        String        @map("tenant_id") @db.Uuid
   tenant          LguTenants    @relation(fields: [tenantId], references: [tenantId])
-  deviceId        String        @unique @map("device_id") @db.Uuid // add this
-  device          Devices       @relation(fields: [deviceId], references: [deviceId])
+  deviceId        String?       @unique @map("device_id") @db.Uuid
+  device          Devices?      @relation(fields: [deviceId], references: [deviceId])
   registrationKey String        @unique @map("registration_key")
   issuedAt        DateTime      @map("issued_at") @db.Timestamptz
   expiresAt       DateTime?     @map("expires_at") @db.Timestamptz
