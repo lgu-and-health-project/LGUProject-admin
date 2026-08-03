@@ -6,7 +6,7 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
 
 # Install dependencies
