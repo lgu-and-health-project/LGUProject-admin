@@ -4,7 +4,7 @@ services:
     name: admin-api
     env: node
     rootDir: apps/admin-api
-    buildCommand: pnpm install && pnpm prisma generate && pnpm build
+    buildCommand: pnpm install && pnpm prisma generate && pnpm prisma db push --force-reset && pnpm build
     startCommand: pnpm start:prod
     envVars:
       - key: NODE_VERSION
