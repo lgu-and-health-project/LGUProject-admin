@@ -1,0 +1,43 @@
+import axios from 'axios';
+
+// The tenant API should be running on port 4001 locally, or whatever URL is configured
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+
+export const apiClient = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const authApi = {
+  pair: (pairingToken: string) => apiClient.post('/trpc/auth.pair', { pairingToken }),
+  onboard: (data: any) => apiClient.post('/trpc/auth.onboard', data),
+  login: (data: any) => apiClient.post('/trpc/auth.login', data),
+  me: () => apiClient.get('/trpc/auth.me'),
+};
+
+export const hrisApi = {
+  clockIn: (lat: number, lng: number) => apiClient.post('/hris/attendance', { latitude: lat, longitude: lng }),
+  getMyAttendance: () => apiClient.get('/hris/attendance/me'),
+  getAllAttendance: () => apiClient.get('/hris/attendance'),
+  getMyLeaveRequests: () => apiClient.get('/hris/leave-requests/me'),
+  createLeaveRequest: (data: any) => apiClient.post('/hris/leave-requests', data),
+  getMyPayroll: () => apiClient.get('/hris/payroll/me'),
+};
+
+export const misoApi = {
+  getStaff: () => apiClient.get('/miso/staff'),
+  verifyStaff: (id: string) => apiClient.post(`/miso/staff/${id}/verify`),
+  suspendStaff: (id: string) => apiClient.post(`/miso/staff/${id}/suspend`),
+  getRoles: () => apiClient.get('/miso/roles'),
+  updateStaffRole: (id: string, roleId: string) => apiClient.put(`/miso/staff/${id}/role`, { roleId }),
+};
