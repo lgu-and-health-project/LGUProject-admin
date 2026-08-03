@@ -98,13 +98,15 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const user = await this.prisma.staffUser.findUnique({
+    const cred = await this.prisma.staffUserCredentials.findUnique({
       where: { email },
-      include: { role: true, org: true },
+      include: { staffUser: { include: { role: true, org: true } } },
     });
+    
+    const user = cred?.staffUser;
 
     // Strictly enforce that user exists, is active, has a valid password hash, and belongs to an active org.
-    if (!user || user.status !== 'active' || !user.passwordHash || user.passwordHash.length < 10) {
+    if (!cred || !user || user.status !== 'active' || !cred.passwordHash || cred.passwordHash.length < 10) {
       await this.prisma.auditLog.create({
         data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
       });
@@ -118,7 +120,7 @@ export class AuthService {
       throw new UnauthorizedException('Organization account is suspended or pending setup');
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, cred.passwordHash);
     if (!valid) {
       await this.prisma.auditLog.create({
         data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
@@ -223,12 +225,17 @@ export class AuthService {
       data: {
         orgCode: org.code,
         email,
-        passwordHash,
         baseRole: 'sysadmin',
         roleId: sysadminRole.id,
         office: 'MISO',
         positionTitle: 'System Administrator',
         departmentId: dept.id,
+        credentials: {
+          create: {
+            email,
+            passwordHash,
+          }
+        }
       },
       include: { role: true },
     });

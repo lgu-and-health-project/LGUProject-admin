@@ -30,7 +30,7 @@ export class StaffManagementService {
       throw new ForbiddenException('Only sysadmin can add staff');
     }
 
-    const existingUser = await this.prisma.staffUser.findUnique({ where: { email: dto.email } });
+    const existingUser = await this.prisma.staffUserCredentials.findUnique({ where: { email: dto.email } });
     if (existingUser) {
       throw new BadRequestException('A user with this email already exists');
     }
@@ -52,8 +52,13 @@ export class StaffManagementService {
         office: dto.office,
         roleId: role.id,
         baseRole: role.roleName, // kept in sync for display; roleId is the source of truth
-        passwordHash,
-        status: 'active',
+        status: 'pending', // MISO verifies this later
+        credentials: {
+          create: {
+            email: dto.email,
+            passwordHash,
+          }
+        }
       },
     });
   }
