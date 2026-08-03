@@ -21,6 +21,6 @@ import { AdminApiModule } from '../admin-api/admin-api.module';
     AdminApiModule,
   ],
   providers: [AuthService, JwtStrategy, PrismaService],
-  exports: [AuthService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
