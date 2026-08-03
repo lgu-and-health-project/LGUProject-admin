@@ -31,6 +31,9 @@ model Organization {
   region              String?
   sysadminEmail       String?
   sysadminName        String?
+  geofenceLat         Float?
+  geofenceLng         Float?
+  geofenceRadius      Float?            @default(50)
   applications        ApplicationCase[]
   auditLogs           AuditLog[]
   citizens            CitizenUser[]
