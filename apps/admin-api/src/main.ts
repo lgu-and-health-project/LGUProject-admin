@@ -14,6 +14,12 @@ dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  const httpAdapter = app.getHttpAdapter();
+  if (httpAdapter && httpAdapter.getInstance) {
+    httpAdapter.getInstance().set('trust proxy', 1);
+  }
+
   app.use(cookieParser());
   app.use(
     helmet({

@@ -10,6 +10,8 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { TrpcModule } from './trpc/trpc.module';
 import { UsersModule } from './users/users.module';
+import { DevicesModule } from './devices/devices.module';
+import { PsgcModule } from './psgc/psgc.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { UsersModule } from './users/users.module';
     TenantsModule,
     TrpcModule,
     UsersModule,
+    DevicesModule,
+    PsgcModule,
   ],
   providers: [
     AppService,

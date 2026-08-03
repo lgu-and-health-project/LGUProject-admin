@@ -139,6 +139,7 @@ export class PsgcController {
     return this.psgcService.findByLevel('barangay', municipalityCode, strict === 'true');
   }
 
+  @SkipThrottle()
   @Get('search')
   async search(@Query('q') query: string) {
     return this.psgcService.searchByName(query);

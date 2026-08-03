@@ -6,6 +6,10 @@ import { StaffModule } from './modules/staff/staff.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminApiModule } from './modules/admin-api/admin-api.module';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { AnnouncementsModule } from './modules/announcements/announcements.module';
+import { HrisModule } from './modules/hris/hris.module';
+import { MisoModule } from './modules/miso/miso.module';
+import { TrpcModule } from './trpc/trpc.module';
 
 @Module({
   imports: [
@@ -15,6 +19,10 @@ import { RbacModule } from './modules/rbac/rbac.module';
     RbacModule,
     ScheduleModule.forRoot(),
     AdminApiModule,
+    AnnouncementsModule,
+    HrisModule,
+    MisoModule,
+    TrpcModule,
   ],
   providers: [AppService],
 })

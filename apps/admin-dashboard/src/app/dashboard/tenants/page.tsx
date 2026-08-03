@@ -20,9 +20,13 @@ import {
   Pencil,
   Check,
   ChevronDown,
+  Server,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import toast from "react-hot-toast";
+import { ProvisionDeviceModal } from "./ProvisionDeviceModal";
+import { ReplaceHardwareModal } from "./ReplaceHardwareModal";
+import { EditSerialModal } from "./EditSerialModal";
 
 
 
@@ -45,6 +49,9 @@ export default function TenantsPage() {
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
+  const [isEditSerialModalOpen, setIsEditSerialModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -290,23 +297,32 @@ export default function TenantsPage() {
             Register and manage LGUs and their system administrators.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setFormData({
-              psgcCode: "",
-              name: "",
-              level: "municipality",
-              sysadminEmail: "",
-            });
-            setIsEditingCode(false);
-            setDraftCode("");
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Register LGU Tenant
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setFormData({
+                psgcCode: "",
+                name: "",
+                level: "municipality",
+                sysadminEmail: "",
+              });
+              setIsEditingCode(false);
+              setDraftCode("");
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Register LGU Tenant
+          </button>
+          <button
+            onClick={() => setIsProvisionModalOpen(true)}
+            className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-600/20"
+          >
+            <Server className="w-4 h-4 mr-2" />
+            Provision & Bind Device
+          </button>
+        </div>
       </div>
 
       <div className="bg-surface p-4 rounded-t-2xl border border-b-0 border-text-secondary/10 flex flex-col lg:flex-row justify-between gap-4">
@@ -421,17 +437,23 @@ export default function TenantsPage() {
             <table className="w-full min-w-[900px] divide-y divide-text-secondary/10 table-fixed">
               <thead className="bg-background/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[20%]">
                   Organization
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Level
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[25%]">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
                   System Administrator
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[15%]">
+                  Bound Device
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
+                  Device Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-[10%]">
                   Registered
@@ -492,6 +514,25 @@ export default function TenantsPage() {
                       <ShieldCheck className="w-4 h-4 mr-1.5 text-text-secondary" />
                       {t.sysadminEmail || "—"}
                     </span>
+                  </td>
+                  <td className="px-6 py-2 whitespace-nowrap">
+                    <span className="text-sm font-medium text-foreground">
+                      {t.device ? t.device.hardwareSerial : <span className="text-text-secondary italic">not yet bound</span>}
+                    </span>
+                  </td>
+                  <td className="px-6 py-2 whitespace-nowrap">
+                    {t.device ? (
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${
+                        t.device.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                        t.device.status === 'SUSPENDED' ? 'bg-red-100 text-red-800 border-red-200' :
+                        t.device.status === 'DECOMMISSIONED' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                        'bg-blue-100 text-blue-800 border-blue-200'
+                      }`}>
+                        {t.device.status.toLowerCase()}
+                      </span>
+                    ) : (
+                      <span className="text-text-secondary text-xs">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-2 whitespace-nowrap text-sm text-text-secondary">
                     {format(new Date(t.createdAt), "MMM d, yyyy")}
@@ -818,6 +859,29 @@ export default function TenantsPage() {
         cancelText="Cancel"
         isDestructive={confirmState.action === 'suspend' || confirmState.action === 'delete'}
       />
+      <ProvisionDeviceModal
+        isOpen={isProvisionModalOpen}
+        onClose={() => setIsProvisionModalOpen(false)}
+        tenants={tenants.filter(t => !t.device)}
+        onSuccess={loadTenants}
+      />
+      {selectedTenant?.device && (
+        <>
+          <ReplaceHardwareModal
+            isOpen={isReplaceModalOpen}
+            onClose={() => setIsReplaceModalOpen(false)}
+            oldDeviceId={selectedTenant.device.id}
+            onSuccess={() => { loadTenants(); setSelectedTenant(null); }}
+          />
+          <EditSerialModal
+            isOpen={isEditSerialModalOpen}
+            onClose={() => setIsEditSerialModalOpen(false)}
+            deviceId={selectedTenant.device.id}
+            initialSerial={selectedTenant.device.hardwareSerial || ""}
+            onSuccess={() => { loadTenants(); setSelectedTenant(null); }}
+          />
+        </>
+      )}
       {/* Side Drawer Overlay */}
       {selectedTenant && (
         <div
@@ -932,6 +996,87 @@ export default function TenantsPage() {
                     </div>
                   )}
                 </div>
+              </section>
+
+              {/* Device Details */}
+              <section>
+                <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Bound Device Details</h3>
+                {selectedTenant.device ? (
+                  <div className="bg-background rounded-xl p-4 border border-text-secondary/10 space-y-4 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-xs text-text-secondary mb-1">Hardware Serial</div>
+                        <div className="font-medium text-foreground flex items-center">
+                          <Server className="w-4 h-4 mr-2 text-primary" />
+                          {selectedTenant.device.hardwareSerial || "Unknown"}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-text-secondary mb-1">Status</div>
+                        <div className="font-medium text-foreground capitalize">
+                          {selectedTenant.device.status.toLowerCase()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-start pt-3 border-t border-text-secondary/10">
+                      <div>
+                        <div className="text-xs text-text-secondary mb-1">Agent Reachable</div>
+                        <div className="font-medium text-foreground flex items-center">
+                          {selectedTenant.device.agentReachable ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" /> : <X className="w-4 h-4 mr-2 text-red-500" />}
+                          {selectedTenant.device.agentReachable ? "Yes" : "No"}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-text-secondary mb-1">Backend Healthy</div>
+                        <div className="font-medium text-foreground flex items-center justify-end">
+                          {selectedTenant.device.backendHealthy ? "Yes" : "No"}
+                          {selectedTenant.device.backendHealthy ? <CheckCircle2 className="w-4 h-4 ml-2 text-emerald-500" /> : <X className="w-4 h-4 ml-2 text-red-500" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-text-secondary/10">
+                      <div className="text-xs text-text-secondary mb-1">Last Heartbeat</div>
+                      <div className="font-medium text-foreground">
+                        {selectedTenant.device.lastHeartbeatAt ? format(new Date(selectedTenant.device.lastHeartbeatAt), "MMM d, yyyy h:mm a") : "Never"}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex gap-2">
+                      {(selectedTenant.device.status === "PROVISIONED" || selectedTenant.device.status === "ASSIGNED") && (
+                        <button
+                          onClick={() => setIsEditSerialModalOpen(true)}
+                          className="flex-1 py-2 bg-background border border-text-secondary/20 hover:bg-surface text-foreground font-medium rounded-lg text-sm transition-colors flex items-center justify-center"
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit Serial
+                        </button>
+                      )}
+                      {(selectedTenant.device.status === "ACTIVE" || selectedTenant.device.status === "SUSPENDED") && (
+                        <button
+                          onClick={() => setIsReplaceModalOpen(true)}
+                          className="flex-1 py-2 bg-background border border-text-secondary/20 hover:bg-surface text-foreground font-medium rounded-lg text-sm transition-colors flex items-center justify-center"
+                        >
+                          <Server className="w-4 h-4 mr-2" />
+                          Replace Hardware
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-background rounded-xl p-6 border border-text-secondary/10 flex flex-col items-center justify-center text-center shadow-sm">
+                    <Server className="w-8 h-8 text-text-secondary/40 mb-3" />
+                    <p className="text-sm font-medium text-foreground mb-1">No Device Bound</p>
+                    <p className="text-xs text-text-secondary mb-4">Provision a device to connect this organization's node.</p>
+                    <button
+                      onClick={() => { setSelectedTenant(null); setIsProvisionModalOpen(true); }}
+                      className="px-4 py-2 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary hover:text-white transition-colors"
+                    >
+                      Provision & Bind
+                    </button>
+                  </div>
+                )}
               </section>
             </div>
 

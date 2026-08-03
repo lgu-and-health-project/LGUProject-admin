@@ -3,6 +3,7 @@ import {
   ConflictException,
   Logger,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +17,7 @@ import {
   LicenseStatus,
   AuditAction,
   AuditTargetType,
+  DeviceStatus,
 } from '@prisma/client';
 import type { JwtPayload } from '../auth/auth.types';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -35,12 +37,13 @@ export class TenantsService {
     const tenants = await this.prisma.lguTenants.findMany({
       where: { status: { not: TenantStatus.deleted } },
       orderBy: { createdAt: 'desc' },
-      include: { licenses: true, psgcLocation: true },
+      include: { licenses: true, psgcLocation: true, devices: true },
     });
 
     return tenants.map((t) => ({
       ...t,
       registrationKey: t.licenses?.[0]?.registrationKey,
+      device: t.devices?.[0] || null,
     }));
   }
 
@@ -73,20 +76,13 @@ export class TenantsService {
       );
     }
 
-    const registrationKey = crypto.randomUUID();
+
 
     const tenant = await this.prisma.lguTenants.create({
       data: {
         psgcLocationId: psgcLocation.psgcLocationId,
         status: TenantStatus.pending_setup,
         sysadminEmail: data.sysadminEmail,
-        licenses: {
-          create: {
-            registrationKey,
-            issuedAt: new Date(),
-            status: LicenseStatus.active,
-          },
-        },
       },
       include: { psgcLocation: true },
     });
@@ -103,55 +99,9 @@ export class TenantsService {
       },
     });
 
-    const setupLink = `${process.env.TENANT_DASHBOARD_URL ?? 'http://localhost:3001'}/setup?key=${registrationKey}`;
-    
-    // Fetch the full hierarchy to build the proper organization name
-    const psgcHierarchy = await this.prisma.psgcLocations.findUnique({
-      where: { code: data.psgcCode },
-      include: {
-        parent: {
-          include: {
-            parent: {
-              include: {
-                parent: true,
-              },
-            },
-          },
-        },
-      },
-    });
 
-    let organizationName = psgcLocation.areaName;
-    if (psgcHierarchy) {
-      const parts: string[] = [];
-      let current: any = psgcHierarchy;
-      while (current) {
-        if (current.level !== 'region' && !parts.includes(current.areaName)) {
-          parts.push(current.areaName);
-        }
-        current = current.parent;
-      }
-      if (parts.length > 0) organizationName = parts.join(', ');
-    }
-    
-    try {
-      await sendPlatformEmail(this.configService, {
-        to: data.sysadminEmail,
-        subject: 'Your System Administrator Account has been created',
-        text: `Your registration key is ${registrationKey}. Access the setup at ${setupLink}`,
-        html: getSysadminEmailTemplate({
-          registrationKey,
-          setupLink,
-          organizationName,
-        }),
-      });
-      
-      this.logger.log(`Sysadmin credentials sent successfully to ${data.sysadminEmail}`);
-    } catch (error) {
-      this.logger.error(`Failed to send sysadmin email to ${data.sysadminEmail}`, error);
-    }
 
-    return { ...tenant, registrationKey };
+    return tenant;
   }
 
   async suspendTenant(id: string, actor: JwtPayload) {
@@ -242,58 +192,50 @@ export class TenantsService {
    * see InternalTenantsController) to check whether a registration key is
    * still valid before letting first-time setup proceed.
    */
-  async verifyRegistrationKey(registrationKey: string) {
-    const license = await this.prisma.licenses.findUnique({
-      where: { registrationKey },
-      include: {
-        tenant: { include: { psgcLocation: true } },
-      },
-    });
 
-    if (!license || license.status !== LicenseStatus.active) {
-      return { valid: false as const, reason: 'NOT_FOUND' as const };
-    }
-
-    if (license.expiresAt && license.expiresAt < new Date()) {
-      return { valid: false as const, reason: 'NOT_FOUND' as const };
-    }
-
-    const tenant = license.tenant;
-
-    if (
-      tenant.status !== TenantStatus.active &&
-      tenant.status !== TenantStatus.pending_setup
-    ) {
-      return { valid: false as const, reason: 'SUSPENDED' as const, tenant };
-    }
-
-    return {
-      valid: true as const,
-      tenant,
-      expectedEmail: tenant.sysadminEmail,
-    };
-  }
-
-  async completeSetup(registrationKey: string) {
-    const license = await this.prisma.licenses.findUnique({
-      where: { registrationKey },
-    });
-    if (!license) throw new NotFoundException('License not found');
-
-    if (license.status !== LicenseStatus.active) {
-      throw new NotFoundException('License is no longer active');
-    }
-
-    if (license.expiresAt && license.expiresAt < new Date()) {
-      throw new NotFoundException('License has expired');
-    }
-
+  async completeSetup(tenantId: string) {
     return this.prisma.lguTenants.update({
-      where: { tenantId: license.tenantId },
+      where: { tenantId },
       data: {
         status: TenantStatus.active,
         sysadminVerifiedAt: new Date(),
       },
     });
+  }
+
+  async recordHeartbeat(license: any, device: any, apiUrl?: string) {
+    const updates: any = { 
+      lastHeartbeatAt: new Date(),
+      agentReachable: true,
+      backendHealthy: true,
+    };
+    
+    if (device.status === DeviceStatus.ASSIGNED) {
+      updates.status = DeviceStatus.ACTIVE;
+      updates.activatedAt = new Date();
+    }
+    
+    await this.prisma.devices.update({
+      where: { deviceId: license.deviceId },
+      data: updates
+    });
+
+    if (apiUrl) {
+      await this.prisma.lguTenants.update({
+        where: { tenantId: license.tenantId },
+        data: { apiUrl }
+      });
+    }
+
+    if (updates.status === DeviceStatus.ACTIVE) {
+      await this.auditLogsService.logAction({
+        action: AuditAction.activate_device,
+        targetType: AuditTargetType.device,
+        targetId: license.deviceId,
+        metadata: { hardwareSerial: device.hardwareSerial, activatedVia: 'heartbeat' },
+      });
+    }
+
+    return { success: true };
   }
 }

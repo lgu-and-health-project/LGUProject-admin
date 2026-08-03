@@ -98,13 +98,15 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const user = await this.prisma.staffUser.findUnique({
+    const cred = await this.prisma.staffUserCredentials.findUnique({
       where: { email },
-      include: { role: true, org: true },
+      include: { staffUser: { include: { role: true, org: true } } },
     });
+    
+    const user = cred?.staffUser;
 
     // Strictly enforce that user exists, is active, has a valid password hash, and belongs to an active org.
-    if (!user || user.status !== 'active' || !user.passwordHash || user.passwordHash.length < 10) {
+    if (!cred || !user || user.status !== 'active' || !cred.passwordHash || cred.passwordHash.length < 10) {
       await this.prisma.auditLog.create({
         data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
       });
@@ -118,7 +120,7 @@ export class AuthService {
       throw new UnauthorizedException('Organization account is suspended or pending setup');
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, cred.passwordHash);
     if (!valid) {
       await this.prisma.auditLog.create({
         data: { actorEmail: email, action: 'login_failed', ipAddress, userAgent },
@@ -140,6 +142,10 @@ export class AuthService {
     return this.buildAuthPayload(user);
   }
 
+  async pairDevice(pairingToken: string) {
+    return this.adminApiService.pairDeviceAndSave(pairingToken);
+  }
+
   async onboard(
     registrationKey: string,
     email: string,
@@ -147,7 +153,12 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const adminResponse = await this.adminApiService.verifyRegistrationKey(registrationKey);
+    const activeKey = await this.adminApiService.getRegistrationKey() || registrationKey;
+    if (!activeKey) {
+      throw new UnauthorizedException('Registration key is required for initial setup.');
+    }
+
+    const adminResponse = await this.adminApiService.verifyRegistrationKey(activeKey);
 
     if (!adminResponse.valid) {
       if (adminResponse.reason === 'NOT_FOUND') {
@@ -175,7 +186,7 @@ export class AuthService {
           code: tenantInfo.psgcCode,
           name: tenantInfo.name,
           level: tenantInfo.level,
-          registrationKey,
+          registrationKey: activeKey,
           status: 'active',
         },
       });
@@ -223,17 +234,22 @@ export class AuthService {
       data: {
         orgCode: org.code,
         email,
-        passwordHash,
         baseRole: 'sysadmin',
         roleId: sysadminRole.id,
         office: 'MISO',
         positionTitle: 'System Administrator',
         departmentId: dept.id,
+        credentials: {
+          create: {
+            email,
+            passwordHash,
+          }
+        }
       },
       include: { role: true },
     });
 
-    await this.adminApiService.completeSetup(registrationKey);
+    await this.adminApiService.completeSetup(activeKey);
 
     await this.prisma.auditLog.create({
       data: {

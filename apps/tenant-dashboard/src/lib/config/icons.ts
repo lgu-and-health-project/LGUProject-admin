@@ -17,15 +17,23 @@ import {
   HardHat,
   Leaf,
   Gavel,
+  LayoutDashboard,
+  Megaphone,
+  Server,
   LucideIcon,
 } from "lucide-react";
 
 // Keyed by module id from lib/config/modules.ts. A module with no entry here
 // falls back to Box in the sidebar rather than crashing the render.
 export const MODULE_ICONS: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  "my-hr": Briefcase,
+  announcements: Megaphone,
+  
   profile: Building2,
   staff: Users,
-  roles: UserCog,
+  roles: Shield,
+  miso: Server,
 
   financial: Landmark,
   assessment: Calculator,

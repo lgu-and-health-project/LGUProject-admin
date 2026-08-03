@@ -9,6 +9,14 @@ export interface Tenant {
   registrationKey?: string;
   sysadminEmail?: string;
   createdAt: string;
+  device?: {
+    id: string;
+    hardwareSerial: string | null;
+    status: string;
+    agentReachable: boolean;
+    backendHealthy: boolean;
+    lastHeartbeatAt: string | null;
+  } | null;
 }
 
 /**
@@ -28,6 +36,14 @@ function mapTenant(raw: any): Tenant {
     registrationKey: raw.registrationKey ?? raw.licenses?.[0]?.registrationKey,
     sysadminEmail: raw.sysadminEmail ?? "",
     createdAt: raw.createdAt,
+    device: raw.device ? {
+      id: raw.device.deviceId,
+      hardwareSerial: raw.device.hardwareSerial,
+      status: raw.device.status,
+      agentReachable: raw.device.agentReachable,
+      backendHealthy: raw.device.backendHealthy,
+      lastHeartbeatAt: raw.device.lastHeartbeatAt,
+    } : null,
   };
 }
 

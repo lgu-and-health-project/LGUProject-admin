@@ -7,6 +7,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminApiModule } from '../admin-api/admin-api.module';
 
+
+
 @Module({
   imports: [
     PassportModule,
@@ -21,6 +23,6 @@ import { AdminApiModule } from '../admin-api/admin-api.module';
     AdminApiModule,
   ],
   providers: [AuthService, JwtStrategy, PrismaService],
-  exports: [],
+  exports: [AuthService],
 })
 export class AuthModule {}

@@ -31,6 +31,9 @@ model Organization {
   region              String?
   sysadminEmail       String?
   sysadminName        String?
+  geofenceLat         Float?
+  geofenceLng         Float?
+  geofenceRadius      Float?            @default(50)
   applications        ApplicationCase[]
   auditLogs           AuditLog[]
   citizens            CitizenUser[]
@@ -38,6 +41,7 @@ model Organization {
   roles               Role[]
   invites             StaffInvite[]
   staff               StaffUser[]
+  announcements       Announcement[]
 }
 
 model Role {
@@ -103,8 +107,7 @@ model Division {
 model StaffUser {
   id                String                    @id @default(uuid())
   orgCode           String
-  email             String                    @unique
-  passwordHash      String?
+  email             String
   authProvider      String                    @default("password")
   status            String                    @default("active")
   baseRole          String?
@@ -125,8 +128,24 @@ model StaffUser {
   department        Department?               @relation(fields: [departmentId], references: [id])
   org               Organization              @relation(fields: [orgCode], references: [code])
   role              Role?                     @relation(fields: [roleId], references: [id])
+  credentials       StaffUserCredentials?
+  announcements     Announcement[]
+  attendanceLogs    AttendanceLog[]
+  payrolls          Payroll[]
+  leaveRequests     LeaveRequest[]            @relation("LeaveRequester")
+  approvedLeaves    LeaveRequest[]            @relation("LeaveApprover")
 
   @@index([orgCode])
+}
+
+model StaffUserCredentials {
+  id           String    @id @default(uuid())
+  staffUserId  String    @unique
+  staffUser    StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  email        String    @unique
+  passwordHash String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model StaffPermissionOverride {
@@ -230,4 +249,71 @@ model AuditLog {
 
   @@index([orgCode])
   @@index([actorId])
+}
+
+// --- Features from common.md ---
+
+model Announcement {
+  id         String   @id @default(uuid())
+  orgCode    String
+  title      String
+  content    String
+  authorId   String
+  targetType String   @default("all") // e.g. "all", "office", "department"
+  targetId   String? // e.g. departmentId if targetType is "department"
+  createdAt  DateTime @default(now())
+
+  author StaffUser    @relation(fields: [authorId], references: [id])
+  org    Organization @relation(fields: [orgCode], references: [code])
+
+  @@index([orgCode])
+}
+
+model AttendanceLog {
+  id          String   @id @default(uuid())
+  staffUserId String
+  status      String // "online", "offline", "absent", "excused"
+  latitude    Float?
+  longitude   Float?
+  timestamp   DateTime @default(now())
+  notes       String?
+
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id])
+
+  @@index([staffUserId])
+  @@index([status])
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  staffUserId String
+  periodStart DateTime
+  periodEnd   DateTime
+  basePay     Float
+  deductions  Float    @default(0)
+  netPay      Float
+  status      String   @default("pending") // "pending", "paid"
+  createdAt   DateTime @default(now())
+
+  staffUser StaffUser @relation(fields: [staffUserId], references: [id])
+
+  @@index([staffUserId])
+}
+
+model LeaveRequest {
+  id             String   @id @default(uuid())
+  staffUserId    String
+  type           String // "formal_leave", "field_work"
+  reason         String
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("pending") // "pending", "approved", "rejected"
+  medicalCertUrl String? // for formal leave if medical
+  approvedById   String?
+  createdAt      DateTime @default(now())
+
+  staffUser  StaffUser  @relation("LeaveRequester", fields: [staffUserId], references: [id])
+  approvedBy StaffUser? @relation("LeaveApprover", fields: [approvedById], references: [id])
+
+  @@index([staffUserId])
 }
