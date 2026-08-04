@@ -29,6 +29,24 @@ const secureHeaders = [
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async rewrites() {
+    const mockBackendUrl = process.env.MOCK_BACKEND_URL;
+
+    if (!mockBackendUrl) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/api-docs",
+        destination: `${mockBackendUrl}/api-docs`,
+      },
+      {
+        source: "/api-docs/:path*",
+        destination: `${mockBackendUrl}/api-docs/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
