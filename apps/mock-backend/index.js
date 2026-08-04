@@ -44,6 +44,22 @@ app.get('/directives/assigned', async (req, res) => {
     requires_proof: d.requires_proof
   })));
 });
+app.post('/directives/assigned', async (req, res) => {
+  try {
+    const d = await prisma.directive.create({ 
+      data: {
+        id: req.body.id || undefined,
+        title: req.body.title || 'Untitled',
+        description: req.body.description || '',
+        issued_by: req.body.issued_by || 'Admin',
+        priority: req.body.priority || 'NORMAL',
+        requires_ack: Boolean(req.body.requires_ack),
+        requires_proof: Boolean(req.body.requires_proof)
+      }
+    });
+    res.json(d);
+  } catch (e) { res.status(500).json({ error: e.message }) }
+});
 app.post('/directives/:id/acknowledge', (req, res) => res.json({ success: true }));
 app.post('/directives/:id/proof', (req, res) => res.json({ success: true }));
 
@@ -175,8 +191,8 @@ app.post('/messages', async (req, res) => {
     const msg = await prisma.message.create({ 
       data: { 
         id: req.body.id || undefined,
-        from: req.body.from_employee_id || req.body.from || 'Unknown',
-        to: req.body.to_employee_id || req.body.to || 'Unknown',
+        from: (req.body.from_employee_id || req.body.from || 'Unknown').trim(),
+        to: (req.body.to_employee_id || req.body.to || 'Unknown').trim(),
         subject: req.body.subject || 'No Subject',
         body: req.body.body || '',
         date: req.body.created_at || req.body.date || new Date().toISOString()
