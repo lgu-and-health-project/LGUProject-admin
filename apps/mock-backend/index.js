@@ -4,24 +4,22 @@ const fs = require('fs');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+const { Client } = require('pg');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Setup Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(express.json());
 
 const DB_FILE = path.join(__dirname, 'db.json');
 
 // --- Mock Data Defaults ---
 const defaultData = {
   staff: [
-    { id: 'staff_01', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
-    { id: 'hr_01', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
-    { id: 'supervisor_01', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
-    { id: 'mayor_01', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
+    { id: '1', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
+    { id: '2', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
+    { id: '3', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
+    { id: '4', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
   ],
   roles: [
     { id: 'r1', name: 'MAYOR' },
@@ -54,32 +52,43 @@ const defaultData = {
   ]
 };
 
-let db = {};
 
-// Load DB
-if (fs.existsSync(DB_FILE)) {
-  try {
-    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
-    console.error("Failed to parse db.json, resetting to defaults", e);
-    db = JSON.parse(JSON.stringify(defaultData));
+let db = defaultData;
+
+let pgClient = null;
+
+async function initDb() {
+  if (process.env.DATABASE_URL) {
+    console.log("Connecting to Postgres...");
+    pgClient = new Client({ connectionString: process.env.DATABASE_URL });
+    await pgClient.connect();
+    await pgClient.query(`CREATE TABLE IF NOT EXISTS mock_store (id INT PRIMARY KEY, data JSONB)`);
+    const res = await pgClient.query(`SELECT data FROM mock_store WHERE id = 1`);
+    if (res.rows.length > 0) {
+      db = res.rows[0].data;
+      console.log("Loaded data from Postgres!");
+    } else {
+      await pgClient.query(`INSERT INTO mock_store (id, data) VALUES (1, $1)`, [db]);
+      console.log("Initialized Postgres with default data!");
+    }
+  } else {
+    console.log("Using local db.json");
+    if (fs.existsSync(DB_FILE)) {
+      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    }
   }
-} else {
-  db = JSON.parse(JSON.stringify(defaultData));
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-// Save DB helper
-const saveDb = () => {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-};
+async function saveDb() {
+  if (pgClient) {
+    await pgClient.query(`UPDATE mock_store SET data = $1 WHERE id = 1`, [JSON.stringify(db)]);
+  } else {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  }
+}
 
 // Helper to format tRPC response since some endpoints might expect it
 const trpcRes = (data) => ({ result: { data } });
-
-// --- Health Check ---
-app.get('/', (req, res) => res.json({ status: 'ok', message: 'Mock Backend is running!' }));
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // --- Auth (tRPC mock & standard mock) ---
 app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
@@ -225,6 +234,8 @@ app.delete('/payslips/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4001;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Mock backend running on http://0.0.0.0:${PORT}`);
-});
+initDb().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Mock backend running on http://0.0.0.0:${PORT}`);
+  });
+}).catch(console.error);
