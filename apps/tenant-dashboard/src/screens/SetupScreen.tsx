@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { KeyRound, ServerCog, ArrowRight } from 'lucide-react';
@@ -6,18 +6,62 @@ import { KeyRound, ServerCog, ArrowRight } from 'lucide-react';
 export default function SetupScreen() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
-  const [pairingToken, setPairingToken] = useState('');
+  const [pairingToken, setPairingToken] = useState<string[]>(Array(6).fill(''));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handlePinChange = (index: number, value: string) => {
+    const char = value.slice(-1).toUpperCase();
+
+    const updated = [...pairingToken];
+    updated[index] = char;
+    setPairingToken(updated);
+
+    if (char && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === 'Backspace' && !pairingToken[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+
+    const pasted = e.clipboardData
+      .getData('text')
+      .replace(/[^A-Za-z0-9]/g, '')
+      .toUpperCase()
+      .slice(0, 6);
+
+    const updated = Array(6).fill('');
+
+    pasted.split('').forEach((char, idx) => {
+      updated[idx] = char;
+    });
+
+    setPairingToken(updated);
+
+    const nextIndex = Math.min(pasted.length, 5);
+    inputRefs.current[nextIndex]?.focus();
+  };
 
   const handlePair = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const res = await authApi.pair(pairingToken);
+      const token = pairingToken.join('');
+      const res = await authApi.pair(token);
       if (!res._trpc?.success) {
         throw new Error('Pairing did not complete.');
       }
@@ -65,15 +109,24 @@ export default function SetupScreen() {
           <form onSubmit={handlePair}>
             <div className="input-group">
               <label>6-Digit Pairing Token</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Enter the code sent to your email"
-                value={pairingToken}
-                onChange={(e) => setPairingToken(e.target.value.toUpperCase())}
-                maxLength={6}
-                required
-              />
+              <div className="pin-container" onPaste={handlePaste}>
+                {pairingToken.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => {
+                      inputRefs.current[index] = el;
+                    }}
+                    type="text"
+                    inputMode="text"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handlePinChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    className="pin-input"
+                    required
+                  />
+                ))}
+              </div>
             </div>
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
               {loading ? 'Pairing Hardware...' : 'Pair Device'} <KeyRound size={18} />
