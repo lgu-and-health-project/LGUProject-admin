@@ -200,7 +200,12 @@ export class AdminApiService {
     }
   }
 
-  async pairDeviceAndSave(pairingToken: string): Promise<void> {
+  async pairDeviceAndSave(pairingToken: string): Promise<{
+    success: true;
+    deviceId?: string;
+    tenantId?: string;
+    savedKeyPrefix: string;
+  }> {
     this.logger.log(`[PAIR] Starting device pairing with token: ${pairingToken}`);
     this.logger.log(`[PAIR] Admin API URL: ${this.adminApiUrl}`);
     try {
@@ -210,7 +215,7 @@ export class AdminApiService {
         this.httpService.post(url, { token: pairingToken }),
       );
       this.logger.log(`[PAIR] Admin API responded: ${JSON.stringify(response.data)}`);
-      const { licenseKey } = response.data;
+      const { deviceId, tenantId, licenseKey } = response.data;
 
       if (!licenseKey) {
         throw new Error('No license key returned from admin-api response');
@@ -234,10 +239,17 @@ export class AdminApiService {
 
       // Cache in memory so heartbeat/poll crons pick it up immediately
       this.cachedRegistrationKey = licenseKey;
+      const pairResult = {
+        success: true as const,
+        deviceId,
+        tenantId,
+        savedKeyPrefix: licenseKey.substring(0, 8),
+      };
 
       this.logger.log(
         '[PAIR] ✓ Registration key saved to database. Device paired successfully.',
       );
+      return pairResult;
     } catch (error: any) {
       this.logger.error(`[PAIR] Failed to pair device: ${error.message}`);
       if (error.response?.data) {

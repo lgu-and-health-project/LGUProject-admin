@@ -25,6 +25,10 @@ apiClient.interceptors.request.use((config) => {
  * This helper handles both.
  */
 function extractTrpcData(axiosRes: any) {
+  if (axiosRes.data?.error) {
+    throw new Error(axiosRes.data.error.message || 'tRPC request failed');
+  }
+
   const inner = axiosRes.data?.result?.data;
   // If tRPC wraps in {json: ...}, unwrap it; otherwise return as-is
   return inner?.json !== undefined ? inner.json : inner;

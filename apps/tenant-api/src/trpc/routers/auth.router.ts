@@ -60,8 +60,7 @@ export class AuthRouter {
         )
         .mutation(async ({ input }) => {
           console.log(`[TRPC] auth.pair called with input:`, JSON.stringify(input));
-          await this.authService.pairDevice(input.pairingToken);
-          return { success: true };
+          return this.authService.pairDevice(input.pairingToken);
         }),
     });
   }
