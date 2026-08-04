@@ -7,15 +7,17 @@ app.use(express.json());
 
 // --- Mock Data ---
 let staff = [
-  { id: '1', name: 'Alice Smith', roleId: 'r1', status: 'active', email: 'alice@example.com', department: 'IT' },
-  { id: '2', name: 'Bob Jones', roleId: 'r2', status: 'pending', email: 'bob@example.com', department: 'HR' },
-  { id: '3', name: 'Charlie Brown', roleId: 'r2', status: 'suspended', email: 'charlie@example.com', department: 'Finance' },
-  { id: '4', name: 'Diana Prince', roleId: 'r1', status: 'active', email: 'diana@example.com', department: 'Management' }
+  { id: '1', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
+  { id: '2', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
+  { id: '3', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
+  { id: '4', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
 ];
 
 let roles = [
-  { id: 'r1', name: 'Admin' },
-  { id: 'r2', name: 'Employee' }
+  { id: 'r1', name: 'MAYOR' },
+  { id: 'r2', name: 'SUPERVISOR' },
+  { id: 'r3', name: 'HR' },
+  { id: 'r4', name: 'STAFF' }
 ];
 
 let attendance = [
@@ -44,13 +46,23 @@ let payslips = [
 // Helper to format tRPC response since some endpoints might expect it
 const trpcRes = (data) => ({ result: { data } });
 
-// --- Auth (tRPC mock) ---
+// --- Auth (tRPC mock & standard mock) ---
 app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.login', (req, res) => res.json(trpcRes({ token: 'mock-jwt-token' })));
 app.get('/trpc/auth.me', (req, res) => res.json(trpcRes(staff[0])));
 
+// --- Directives ---
+let directives = [
+  { id: 'd1', title: 'Submit Weekly Report', description: 'Please submit your weekly tasks', issued_by: 'Supervisor', priority: 'NORMAL', requires_ack: true, requires_proof: false },
+  { id: 'd2', title: 'Emergency Meeting', description: 'Gather at the town hall', issued_by: 'Mayor', priority: 'URGENT', requires_ack: true, requires_proof: true }
+];
+app.get('/directives/assigned', (req, res) => res.json(directives));
+app.post('/directives/:id/acknowledge', (req, res) => res.json({ success: true }));
+app.post('/directives/:id/proof', (req, res) => res.json({ success: true }));
+
 // --- HRIS (Attendance, Leaves, Payroll) ---
+// For the React/Vite dashboard
 app.post('/hris/attendance', (req, res) => {
   const record = { id: Date.now().toString(), staffId: '1', date: new Date().toISOString(), ...req.body };
   attendance.push(record);
@@ -58,6 +70,18 @@ app.post('/hris/attendance', (req, res) => {
 });
 app.get('/hris/attendance/me', (req, res) => res.json(attendance.filter(a => a.staffId === '1')));
 app.get('/hris/attendance', (req, res) => res.json(attendance));
+
+// For the Expo App
+app.post('/attendance', (req, res) => {
+  const record = { id: Date.now().toString(), staffId: '1', date: new Date().toISOString(), ...req.body };
+  attendance.push(record);
+  res.json(record);
+});
+app.post('/leave-requests', (req, res) => {
+  const reqData = { id: Date.now().toString(), staffId: '1', status: 'pending', ...req.body };
+  leaveRequests.push(reqData);
+  res.json(reqData);
+});
 
 app.post('/hris/leave-requests', (req, res) => {
   const reqData = { id: Date.now().toString(), staffId: '1', status: 'pending', ...req.body };
