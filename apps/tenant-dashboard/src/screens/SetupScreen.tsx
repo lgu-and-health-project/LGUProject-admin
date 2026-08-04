@@ -14,7 +14,10 @@ export default function SetupScreen() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const handlePinChange = (index: number, value: string) => {
-    const char = value.slice(-1).toUpperCase();
+    const char = value
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(-1)
+    .toUpperCase();
 
     const updated = [...pairingToken];
     updated[index] = char;
@@ -61,6 +64,13 @@ export default function SetupScreen() {
     setLoading(true);
     try {
       const token = pairingToken.join('');
+
+      if (token.length !== 6) {
+        setError('Please enter the complete 6-digit pairing token.');
+        setLoading(false);
+        return;
+      }
+      
       const res = await authApi.pair(token);
       if (!res._trpc?.success) {
         throw new Error('Pairing did not complete.');
@@ -71,7 +81,11 @@ export default function SetupScreen() {
         setLoading(false);
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to pair device. Check token.');
+      setError(
+      err.response?.data?.error?.message ||
+      err.message ||
+      'Failed to pair device. Check token.'
+    );
       setLoading(false);
     }
   };
