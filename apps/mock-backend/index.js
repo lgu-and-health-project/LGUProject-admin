@@ -2,6 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+
+// Force IPv4 DNS resolution for Supabase on Render to prevent ENETUNREACH IPv6 errors
+dns.setDefaultResultOrder('ipv4first');
+
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const { Client } = require('pg');
