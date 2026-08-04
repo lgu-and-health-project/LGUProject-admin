@@ -16,7 +16,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const res = await authApi.login({ email, password });
-      localStorage.setItem('access_token', res.data.result.data.access_token);
+      localStorage.setItem('access_token', res._trpc.access_token);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials');

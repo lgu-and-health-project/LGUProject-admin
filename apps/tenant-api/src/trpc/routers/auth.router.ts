@@ -59,8 +59,7 @@ export class AuthRouter {
           }),
         )
         .mutation(async ({ input }) => {
-          // This will call the admin API to get the license key and save it to .env, then restart the server.
-          // In a real environment, the response may drop due to the restart, but we return success here if it reaches.
+          console.log(`[TRPC] auth.pair called with input:`, JSON.stringify(input));
           await this.authService.pairDevice(input.pairingToken);
           return { success: true };
         }),

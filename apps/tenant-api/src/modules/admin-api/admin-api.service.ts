@@ -74,11 +74,15 @@ export class AdminApiService {
 
   public async getRegistrationKey(): Promise<string | null> {
     // 1. In-memory cache (fastest – set during pairing or first DB hit)
-    if (this.cachedRegistrationKey) return this.cachedRegistrationKey;
+    if (this.cachedRegistrationKey) {
+      this.logger.debug(`[KEY] Found in memory cache`);
+      return this.cachedRegistrationKey;
+    }
 
     // 2. Environment variable (for pre-configured deployments)
     const envKey = this.configService.get<string>('DEVICE_REGISTRATION_KEY');
     if (envKey) {
+      this.logger.debug(`[KEY] Found in env var`);
       this.cachedRegistrationKey = envKey;
       return envKey;
     }
@@ -89,11 +93,13 @@ export class AdminApiService {
         where: { key: 'DEVICE_REGISTRATION_KEY' },
       });
       if (config?.value) {
+        this.logger.log(`[KEY] Found in SystemConfig table`);
         this.cachedRegistrationKey = config.value;
         return config.value;
       }
-    } catch {
-      // Table may not exist yet if migration hasn't run – fall through
+      this.logger.debug(`[KEY] Not found in SystemConfig table`);
+    } catch (err: any) {
+      this.logger.warn(`[KEY] SystemConfig query failed: ${err.message}`);
     }
 
     // 4. Organization table (populated during onboarding step 2)
@@ -101,10 +107,12 @@ export class AdminApiService {
       where: { registrationKey: { not: '' } },
     });
     if (org?.registrationKey) {
+      this.logger.log(`[KEY] Found in Organization table`);
       this.cachedRegistrationKey = org.registrationKey;
       return org.registrationKey;
     }
 
+    this.logger.debug(`[KEY] No registration key found anywhere`);
     return null;
   }
 
@@ -193,34 +201,51 @@ export class AdminApiService {
   }
 
   async pairDeviceAndSave(pairingToken: string): Promise<void> {
+    this.logger.log(`[PAIR] Starting device pairing with token: ${pairingToken}`);
+    this.logger.log(`[PAIR] Admin API URL: ${this.adminApiUrl}`);
     try {
       const url = `${this.adminApiUrl}/api/devices/pair`;
+      this.logger.log(`[PAIR] Calling POST ${url}`);
       const response = await firstValueFrom(
         this.httpService.post(url, { token: pairingToken }),
       );
+      this.logger.log(`[PAIR] Admin API responded: ${JSON.stringify(response.data)}`);
       const { licenseKey } = response.data;
 
       if (!licenseKey) {
-        throw new Error('No license key returned');
+        throw new Error('No license key returned from admin-api response');
       }
 
+      this.logger.log(`[PAIR] Received license key: ${licenseKey.substring(0, 8)}...`);
+
       // Persist to database so the key survives container restarts.
-      // Previously this wrote to .env + called process.exit(0), which was
-      // ephemeral inside Docker containers — the key was lost on restart.
+      this.logger.log(`[PAIR] Saving key to SystemConfig table...`);
       await this.prisma.systemConfig.upsert({
         where: { key: 'DEVICE_REGISTRATION_KEY' },
         update: { value: licenseKey },
         create: { key: 'DEVICE_REGISTRATION_KEY', value: licenseKey },
       });
 
+      // Verify write
+      const verify = await this.prisma.systemConfig.findUnique({
+        where: { key: 'DEVICE_REGISTRATION_KEY' },
+      });
+      this.logger.log(`[PAIR] DB verification — stored key: ${verify?.value?.substring(0, 8) ?? 'NULL'}...`);
+
       // Cache in memory so heartbeat/poll crons pick it up immediately
       this.cachedRegistrationKey = licenseKey;
 
       this.logger.log(
-        'Registration key saved to database. Device paired successfully.',
+        '[PAIR] ✓ Registration key saved to database. Device paired successfully.',
       );
     } catch (error: any) {
-      this.logger.error(`Failed to pair device: ${error.message}`);
+      this.logger.error(`[PAIR] ✗ Failed to pair device: ${error.message}`);
+      if (error.response?.data) {
+        this.logger.error(`[PAIR] Response body: ${JSON.stringify(error.response.data)}`);
+      }
+      if (error.response?.status) {
+        this.logger.error(`[PAIR] Response status: ${error.response.status}`);
+      }
       throw error;
     }
   }

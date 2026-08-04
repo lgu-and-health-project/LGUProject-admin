@@ -18,10 +18,22 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Extracts the actual data from a tRPC HTTP response.
+ * tRPC v11 wraps mutation results as { result: { data: { json: <value> } } }
+ * but some configurations return { result: { data: <value> } }.
+ * This helper handles both.
+ */
+function extractTrpcData(axiosRes: any) {
+  const inner = axiosRes.data?.result?.data;
+  // If tRPC wraps in {json: ...}, unwrap it; otherwise return as-is
+  return inner?.json !== undefined ? inner.json : inner;
+}
+
 export const authApi = {
-  pair: (pairingToken: string) => apiClient.post('/trpc/auth.pair', { pairingToken }),
-  onboard: (data: any) => apiClient.post('/trpc/auth.onboard', data),
-  login: (data: any) => apiClient.post('/trpc/auth.login', data),
+  pair: (pairingToken: string) => apiClient.post('/trpc/auth.pair', { json: { pairingToken } }),
+  onboard: (data: any) => apiClient.post('/trpc/auth.onboard', { json: data }).then(res => ({ ...res, _trpc: extractTrpcData(res) })),
+  login: (data: any) => apiClient.post('/trpc/auth.login', { json: data }).then(res => ({ ...res, _trpc: extractTrpcData(res) })),
   me: () => apiClient.get('/trpc/auth.me'),
 };
 
