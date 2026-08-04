@@ -32,7 +32,10 @@
                   "type": { "type": "string", "example": "IN" },
                   "latitude": { "type": "number", "example": 14.5995 },
                   "longitude": { "type": "number", "example": 120.9842 },
-                  "photo_base64": { "type": "string", "example": "base64string..." }
+                  "photo_base64": {
+                    "type": "string",
+                    "example": "base64string..."
+                  }
                 }
               }
             }
@@ -78,7 +81,12 @@
       "post": {
         "summary": "Acknowledge a directive",
         "parameters": [
-          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "requestBody": {
           "content": {
@@ -86,7 +94,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "acknowledged_at": { "type": "string", "example": "2023-10-01T12:00:00Z" }
+                  "acknowledged_at": {
+                    "type": "string",
+                    "example": "2023-10-01T12:00:00Z"
+                  }
                 }
               }
             }
@@ -101,7 +112,12 @@
       "post": {
         "summary": "Submit proof for a directive",
         "parameters": [
-          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "requestBody": {
           "content": {
@@ -109,7 +125,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "photo_base64": { "type": "string", "example": "base64string..." },
+                  "photo_base64": {
+                    "type": "string",
+                    "example": "base64string..."
+                  },
                   "notes": { "type": "string", "example": "Task completed." }
                 }
               }

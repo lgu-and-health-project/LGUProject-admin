@@ -1,6 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -11,6 +9,9 @@ import { ConfigService } from '@nestjs/config';
 export class AdminApiService {
   private readonly logger = new Logger(AdminApiService.name);
   private adminApiUrl: string;
+  private internalServiceSecret: string | undefined;
+  /** In-memory cache so cron jobs pick up the key immediately after pairing. */
+  private cachedRegistrationKey: string | null = null;
 
   constructor(
     private httpService: HttpService,
@@ -20,12 +21,29 @@ export class AdminApiService {
     this.adminApiUrl =
       this.configService.get<string>('ADMIN_API_URL') ||
       'http://localhost:4000';
+    this.internalServiceSecret = this.configService.get<string>(
+      'INTERNAL_SERVICE_SECRET',
+    );
+  }
+
+  /**
+   * Returns headers required by admin-api's InternalServiceGuard.
+   * All calls to /internal/* MUST include this.
+   */
+  private getInternalHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (this.internalServiceSecret) {
+      headers['x-service-auth'] = this.internalServiceSecret;
+    }
+    return headers;
   }
 
   async verifyRegistrationKey(registrationKey: string) {
     try {
       const url = `${this.adminApiUrl}/internal/tenants/verify/${registrationKey}`;
-      const response = await firstValueFrom(this.httpService.get(url));
+      const response = await firstValueFrom(
+        this.httpService.get(url, { headers: this.getInternalHeaders() }),
+      );
       return response.data;
     } catch (error: any) {
       this.logger.error(`Failed to verify registration key: ${error.message}`);
@@ -42,7 +60,9 @@ export class AdminApiService {
   async completeSetup(registrationKey: string) {
     try {
       const url = `${this.adminApiUrl}/internal/tenants/complete-setup/${registrationKey}`;
-      const response = await firstValueFrom(this.httpService.post(url));
+      const response = await firstValueFrom(
+        this.httpService.post(url, {}, { headers: this.getInternalHeaders() }),
+      );
       return response.data;
     } catch (error: any) {
       this.logger.error(
@@ -53,13 +73,39 @@ export class AdminApiService {
   }
 
   public async getRegistrationKey(): Promise<string | null> {
-    const envKey = this.configService.get<string>('DEVICE_REGISTRATION_KEY');
-    if (envKey) return envKey;
+    // 1. In-memory cache (fastest – set during pairing or first DB hit)
+    if (this.cachedRegistrationKey) return this.cachedRegistrationKey;
 
+    // 2. Environment variable (for pre-configured deployments)
+    const envKey = this.configService.get<string>('DEVICE_REGISTRATION_KEY');
+    if (envKey) {
+      this.cachedRegistrationKey = envKey;
+      return envKey;
+    }
+
+    // 3. SystemConfig table (persisted during pairing – survives container restarts)
+    try {
+      const config = await this.prisma.systemConfig.findUnique({
+        where: { key: 'DEVICE_REGISTRATION_KEY' },
+      });
+      if (config?.value) {
+        this.cachedRegistrationKey = config.value;
+        return config.value;
+      }
+    } catch {
+      // Table may not exist yet if migration hasn't run – fall through
+    }
+
+    // 4. Organization table (populated during onboarding step 2)
     const org = await this.prisma.organization.findFirst({
       where: { registrationKey: { not: '' } },
     });
-    return org?.registrationKey || null;
+    if (org?.registrationKey) {
+      this.cachedRegistrationKey = org.registrationKey;
+      return org.registrationKey;
+    }
+
+    return null;
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -133,7 +179,13 @@ export class AdminApiService {
         this.configService.get<string>('PUBLIC_API_URL') ||
         `http://localhost:${process.env.PORT || 4001}`;
       const url = `${this.adminApiUrl}/internal/tenants/heartbeat/${registrationKey}`;
-      await firstValueFrom(this.httpService.post(url, { apiUrl: myApiUrl }));
+      await firstValueFrom(
+        this.httpService.post(
+          url,
+          { apiUrl: myApiUrl },
+          { headers: this.getInternalHeaders() },
+        ),
+      );
       this.logger.log(`Heartbeat sent successfully.`);
     } catch (error: any) {
       this.logger.error(`Error sending heartbeat: ${error.message}`);
@@ -152,30 +204,21 @@ export class AdminApiService {
         throw new Error('No license key returned');
       }
 
-      // Write to .env
-      const envPath = path.resolve(process.cwd(), '.env');
+      // Persist to database so the key survives container restarts.
+      // Previously this wrote to .env + called process.exit(0), which was
+      // ephemeral inside Docker containers — the key was lost on restart.
+      await this.prisma.systemConfig.upsert({
+        where: { key: 'DEVICE_REGISTRATION_KEY' },
+        update: { value: licenseKey },
+        create: { key: 'DEVICE_REGISTRATION_KEY', value: licenseKey },
+      });
 
-      let envContent = '';
-      if (fs.existsSync(envPath)) {
-        envContent = fs.readFileSync(envPath, 'utf8');
-      }
+      // Cache in memory so heartbeat/poll crons pick it up immediately
+      this.cachedRegistrationKey = licenseKey;
 
-      if (envContent.includes('DEVICE_REGISTRATION_KEY=')) {
-        envContent = envContent.replace(
-          /DEVICE_REGISTRATION_KEY=.*/g,
-          `DEVICE_REGISTRATION_KEY=${licenseKey}`,
-        );
-      } else {
-        envContent += `\nDEVICE_REGISTRATION_KEY=${licenseKey}\n`;
-      }
-
-      fs.writeFileSync(envPath, envContent);
       this.logger.log(
-        'Credentials saved to .env. Restarting service to apply changes...',
+        'Registration key saved to database. Device paired successfully.',
       );
-
-      // Delay exit slightly to allow response to complete if possible, though TRPC will likely fail if exit is too fast.
-      setTimeout(() => process.exit(0), 1000);
     } catch (error: any) {
       this.logger.error(`Failed to pair device: ${error.message}`);
       throw error;

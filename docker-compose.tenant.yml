@@ -24,7 +24,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:mysecretpassword@tenant-db:5432/lgu_tenant?schema=public
       - JWT_SECRET=supersecretjwtkey123
-      - ADMIN_API_URL=https://lguproject-admin.onrender.com
+      - ADMIN_API_URL=https://admin.your-lgu-platform.com  # TODO: set to your actual Render admin-api URL
+      - INTERNAL_SERVICE_SECRET=change-me-to-match-admin-api  # Must match admin-api's INTERNAL_SERVICE_SECRET on Render
       - PORT=4001
     ports:
       - "4001:4001"
