@@ -6,7 +6,6 @@ const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Force IPv4 DNS resolution for Supabase on Render to prevent ENETUNREACH IPv6 errors
 dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
@@ -17,14 +16,11 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Helper to format tRPC response
 const trpcRes = (data) => ({ result: { data } });
 
-// --- Health Check ---
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'Prisma Backend is running!' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// --- Auth (tRPC mock) ---
 app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.login', (req, res) => res.json(trpcRes({ token: 'mock-jwt-token' })));
@@ -34,37 +30,84 @@ app.get('/trpc/auth.me', async (req, res) => {
 });
 
 // --- Directives ---
-app.get('/directives/assigned', async (req, res) => res.json(await prisma.directive.findMany()));
+app.get('/directives/assigned', async (req, res) => {
+  const dirs = await prisma.directive.findMany();
+  res.json(dirs.map(d => ({
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    issued_by: d.issued_by,
+    issued_by_role: 'ADMIN',
+    priority: d.priority,
+    deadline: null,
+    requires_ack: d.requires_ack,
+    requires_proof: d.requires_proof
+  })));
+});
 app.post('/directives/:id/acknowledge', (req, res) => res.json({ success: true }));
 app.post('/directives/:id/proof', (req, res) => res.json({ success: true }));
 
 // --- HRIS (Attendance, Leaves, Payroll) ---
 app.post('/hris/attendance', async (req, res) => {
-  const record = await prisma.attendance.create({
-    data: { staffId: '1', date: new Date().toISOString(), ...req.body }
-  });
-  res.json(record);
+  try {
+    const record = await prisma.attendance.create({
+      data: { 
+        staffId: req.body.employee_id || 'Unknown', 
+        date: req.body.captured_at || new Date().toISOString(),
+        status: req.body.type || 'IN',
+        latitude: req.body.latitude || 0.0,
+        longitude: req.body.longitude || 0.0
+      }
+    });
+    res.json(record);
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
 app.get('/hris/attendance/me', async (req, res) => res.json(await prisma.attendance.findMany({ where: { staffId: '1' } })));
 app.get('/hris/attendance', async (req, res) => res.json(await prisma.attendance.findMany()));
 
 app.post('/attendance', async (req, res) => {
-  const record = await prisma.attendance.create({
-    data: { staffId: '1', date: new Date().toISOString(), ...req.body }
-  });
-  res.json(record);
+  try {
+    const record = await prisma.attendance.create({
+      data: { 
+        staffId: req.body.employee_id || 'Unknown', 
+        date: req.body.captured_at || new Date().toISOString(),
+        status: req.body.type || 'IN',
+        latitude: req.body.latitude || 0.0,
+        longitude: req.body.longitude || 0.0
+      }
+    });
+    res.json(record);
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
+
 app.post('/leave-requests', async (req, res) => {
-  const reqData = await prisma.leaveRequest.create({
-    data: { staffId: '1', status: 'pending', ...req.body }
-  });
-  res.json(reqData);
+  try {
+    const reqData = await prisma.leaveRequest.create({
+      data: { 
+        staffId: req.body.employee_id || 'Unknown', 
+        status: 'pending', 
+        type: req.body.type || 'Leave',
+        date: req.body.date_from || new Date().toISOString(),
+        reason: req.body.reason || 'No reason'
+      }
+    });
+    res.json(reqData);
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
+
 app.post('/hris/leave-requests', async (req, res) => {
-  const reqData = await prisma.leaveRequest.create({
-    data: { staffId: '1', status: 'pending', ...req.body }
-  });
-  res.json(reqData);
+  try {
+    const reqData = await prisma.leaveRequest.create({
+      data: { 
+        staffId: req.body.employee_id || 'Unknown', 
+        status: 'pending', 
+        type: req.body.type || 'Leave',
+        date: req.body.date_from || new Date().toISOString(),
+        reason: req.body.reason || 'No reason'
+      }
+    });
+    res.json(reqData);
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
 app.get('/hris/leave-requests/me', async (req, res) => res.json(await prisma.leaveRequest.findMany({ where: { staffId: '1' } })));
 app.get('/hris/leave-requests', async (req, res) => res.json(await prisma.leaveRequest.findMany()));
@@ -95,8 +138,10 @@ app.put('/miso/staff/:id/role', async (req, res) => {
 });
 
 app.post('/miso/staff', async (req, res) => {
-  const s = await prisma.staff.create({ data: { status: 'pending', ...req.body } });
-  res.json(s);
+  try {
+    const s = await prisma.staff.create({ data: { status: 'pending', ...req.body } });
+    res.json(s);
+  } catch(e) { res.status(500).json({ error: e.message }) }
 });
 app.put('/miso/staff/:id', async (req, res) => {
   try {
@@ -113,21 +158,23 @@ app.delete('/miso/staff/:id', async (req, res) => {
 
 // --- Messages (Basic CRUD) ---
 app.get('/messages', async (req, res) => {
-  const msgs = await prisma.message.findMany();
-  res.json(msgs.map(m => ({
-    id: m.id,
-    from_employee_id: m.from,
-    to_employee_id: m.to,
-    body: m.body,
-    created_at: m.date
-  })));
+  try {
+    const msgs = await prisma.message.findMany();
+    res.json(msgs.map(m => ({
+      id: m.id,
+      from_employee_id: m.from,
+      to_employee_id: m.to,
+      body: m.body,
+      created_at: m.date
+    })));
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
 app.get('/messages/:id', async (req, res) => res.json(await prisma.message.findUnique({ where: { id: req.params.id } })));
 app.post('/messages', async (req, res) => {
   try {
     const msg = await prisma.message.create({ 
       data: { 
-        id: req.body.id,
+        id: req.body.id || undefined,
         from: req.body.from_employee_id || req.body.from || 'Unknown',
         to: req.body.to_employee_id || req.body.to || 'Unknown',
         subject: req.body.subject || 'No Subject',
@@ -158,8 +205,10 @@ app.delete('/messages/:id', async (req, res) => {
 app.get('/payslips', async (req, res) => res.json(await prisma.payslip.findMany()));
 app.get('/payslips/:id', async (req, res) => res.json(await prisma.payslip.findUnique({ where: { id: req.params.id } })));
 app.post('/payslips', async (req, res) => {
-  const slip = await prisma.payslip.create({ data: req.body });
-  res.json(slip);
+  try {
+    const slip = await prisma.payslip.create({ data: req.body });
+    res.json(slip);
+  } catch (e) { res.status(500).json({ error: e.message }) }
 });
 app.put('/payslips/:id', async (req, res) => {
   try {
