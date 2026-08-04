@@ -30,6 +30,7 @@ RUN pnpm install --prod --filter tenant-api...
 
 COPY --from=builder /app/apps/tenant-api/dist ./apps/tenant-api/dist
 COPY --from=builder /app/apps/tenant-api/prisma ./apps/tenant-api/prisma
+COPY --from=builder /app/apps/tenant-api/prisma.config.ts ./apps/tenant-api/prisma.config.ts
 
 WORKDIR /app/apps/tenant-api
 
