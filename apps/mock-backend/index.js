@@ -71,6 +71,10 @@ const saveDb = () => {
 // Helper to format tRPC response since some endpoints might expect it
 const trpcRes = (data) => ({ result: { data } });
 
+// --- Health Check ---
+app.get('/', (req, res) => res.json({ status: 'ok', message: 'Mock Backend is running!' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
 // --- Auth (tRPC mock & standard mock) ---
 app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
