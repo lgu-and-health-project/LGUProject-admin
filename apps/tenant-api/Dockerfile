@@ -2,6 +2,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npm install -g pnpm
 
 COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -20,6 +23,9 @@ RUN pnpm --filter tenant-api build
 FROM node:20-alpine
 
 WORKDIR /app
+
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
