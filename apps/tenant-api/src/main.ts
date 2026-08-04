@@ -13,6 +13,8 @@ async function bootstrap() {
       'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:4002',
+      'http://127.0.0.1:4002',
     ],
     credentials: true,
   });

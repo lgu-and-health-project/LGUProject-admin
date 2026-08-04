@@ -2,6 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+ARG VITE_API_URL=http://localhost:4001
+ENV VITE_API_URL=$VITE_API_URL
+
 # Install pnpm
 RUN npm install -g pnpm
 
