@@ -18,10 +18,10 @@ const DB_FILE = path.join(__dirname, 'db.json');
 // --- Mock Data Defaults ---
 const defaultData = {
   staff: [
-    { id: '1', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
-    { id: '2', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
-    { id: '3', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
-    { id: '4', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
+    { id: 'staff_01', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
+    { id: 'hr_01', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
+    { id: 'supervisor_01', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
+    { id: 'mayor_01', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
   ],
   roles: [
     { id: 'r1', name: 'MAYOR' },
@@ -225,6 +225,6 @@ app.delete('/payslips/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4001;
-app.listen(PORT, () => {
-  console.log(`Mock backend running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Mock backend running on http://0.0.0.0:${PORT}`);
 });

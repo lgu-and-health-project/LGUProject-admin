@@ -1,0 +1,173 @@
+{
+  "staff": [
+    {
+      "id": "staff_01",
+      "name": "Alice Smith",
+      "role": "STAFF",
+      "status": "active",
+      "email": "alice@example.com",
+      "department": "IT"
+    },
+    {
+      "id": "hr_01",
+      "name": "Bob Jones",
+      "role": "HR",
+      "status": "active",
+      "email": "bob@example.com",
+      "department": "HR"
+    },
+    {
+      "id": "supervisor_01",
+      "name": "Charlie Brown",
+      "role": "SUPERVISOR",
+      "status": "active",
+      "email": "charlie@example.com",
+      "department": "Finance"
+    },
+    {
+      "id": "mayor_01",
+      "name": "Diana Prince",
+      "role": "MAYOR",
+      "status": "active",
+      "email": "diana@example.com",
+      "department": "Management"
+    }
+  ],
+  "roles": [
+    {
+      "id": "r1",
+      "name": "MAYOR"
+    },
+    {
+      "id": "r2",
+      "name": "SUPERVISOR"
+    },
+    {
+      "id": "r3",
+      "name": "HR"
+    },
+    {
+      "id": "r4",
+      "name": "STAFF"
+    }
+  ],
+  "attendance": [
+    {
+      "id": "a1",
+      "staffId": "1",
+      "date": "2023-10-01",
+      "status": "present",
+      "latitude": 10,
+      "longitude": 20
+    },
+    {
+      "id": "a2",
+      "staffId": "2",
+      "date": "2023-10-01",
+      "status": "absent",
+      "latitude": 0,
+      "longitude": 0
+    },
+    {
+      "id": "a3",
+      "staffId": "1",
+      "date": "2023-10-02",
+      "status": "present",
+      "latitude": 10.1,
+      "longitude": 20.1
+    }
+  ],
+  "leaveRequests": [
+    {
+      "id": "l1",
+      "staffId": "1",
+      "type": "Sick Leave",
+      "status": "pending",
+      "date": "2023-10-15",
+      "reason": "Fever"
+    },
+    {
+      "id": "l2",
+      "staffId": "2",
+      "type": "Vacation",
+      "status": "approved",
+      "date": "2023-11-01",
+      "reason": "Family trip"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m1",
+      "from": "System",
+      "to": "1",
+      "subject": "Welcome",
+      "body": "Welcome to the portal!",
+      "date": "2026-08-04T02:36:04.295Z"
+    },
+    {
+      "id": "m2",
+      "from": "HR",
+      "to": "1",
+      "subject": "Policy Update",
+      "body": "Please review the new leave policy.",
+      "date": "2026-08-04T02:36:04.297Z"
+    },
+    {
+      "id": "m3",
+      "from": "1",
+      "to": "HR",
+      "subject": "Question",
+      "body": "When is the next holiday?",
+      "date": "2026-08-04T02:36:04.297Z"
+    }
+  ],
+  "payslips": [
+    {
+      "id": "p1",
+      "staffId": "1",
+      "month": "October 2023",
+      "amount": 5000,
+      "deductions": 500,
+      "net": 4500,
+      "status": "paid"
+    },
+    {
+      "id": "p2",
+      "staffId": "1",
+      "month": "September 2023",
+      "amount": 5000,
+      "deductions": 500,
+      "net": 4500,
+      "status": "paid"
+    },
+    {
+      "id": "p3",
+      "staffId": "2",
+      "month": "October 2023",
+      "amount": 4000,
+      "deductions": 400,
+      "net": 3600,
+      "status": "pending"
+    }
+  ],
+  "directives": [
+    {
+      "id": "d1",
+      "title": "Submit Weekly Report",
+      "description": "Please submit your weekly tasks",
+      "issued_by": "Supervisor",
+      "priority": "NORMAL",
+      "requires_ack": true,
+      "requires_proof": false
+    },
+    {
+      "id": "d2",
+      "title": "Emergency Meeting",
+      "description": "Gather at the town hall",
+      "issued_by": "Mayor",
+      "priority": "URGENT",
+      "requires_ack": true,
+      "requires_proof": true
+    }
+  ]
+}
