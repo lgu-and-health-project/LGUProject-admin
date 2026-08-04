@@ -1,0 +1,203 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mock Backend API for HRIS Application",
+    "version": "1.0.0",
+    "description": "API documentation for the placeholder backend used by the HRIS Application prototype."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+    "/attendance": {
+      "post": {
+        "summary": "Clock In / Out",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "example": "IN" },
+                  "latitude": { "type": "number", "example": 14.5995 },
+                  "longitude": { "type": "number", "example": 120.9842 },
+                  "photo_base64": { "type": "string", "example": "base64string..." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Created" }
+        }
+      }
+    },
+    "/leave-requests": {
+      "post": {
+        "summary": "File an OT/Leave Request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "example": "Sick Leave" },
+                  "date_from": { "type": "string", "example": "2023-11-01" },
+                  "date_to": { "type": "string", "example": "2023-11-03" },
+                  "reason": { "type": "string", "example": "Fever" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Created" }
+        }
+      }
+    },
+    "/directives/assigned": {
+      "get": {
+        "summary": "Get Assigned Directives",
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+    "/directives/{id}/acknowledge": {
+      "post": {
+        "summary": "Acknowledge a directive",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "acknowledged_at": { "type": "string", "example": "2023-10-01T12:00:00Z" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+    "/directives/{id}/proof": {
+      "post": {
+        "summary": "Submit proof for a directive",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo_base64": { "type": "string", "example": "base64string..." },
+                  "notes": { "type": "string", "example": "Task completed." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+    "/miso/staff": {
+      "get": {
+        "summary": "Get all staff",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create staff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" },
+                  "email": { "type": "string", "example": "john@example.com" },
+                  "role": { "type": "string", "example": "STAFF" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/miso/roles": {
+      "get": {
+        "summary": "Get all roles",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/messages": {
+      "get": {
+        "summary": "Get all messages",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Send a message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": { "type": "string", "example": "1" },
+                  "subject": { "type": "string", "example": "Hello" },
+                  "body": { "type": "string", "example": "Message body" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/payslips": {
+      "get": {
+        "summary": "Get all payslips",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create a payslip",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "staffId": { "type": "string", "example": "1" },
+                  "month": { "type": "string", "example": "November 2023" },
+                  "amount": { "type": "number", "example": 5000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}
