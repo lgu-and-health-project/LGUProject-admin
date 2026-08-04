@@ -4,10 +4,11 @@
   "description": "Mock backend for tenant-dashboard",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "npx prisma generate && node index.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@prisma/client": "^7.9.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
@@ -15,6 +16,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "prisma": "^7.9.1"
   }
 }

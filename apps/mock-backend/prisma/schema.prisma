@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Staff {
+  id         String   @id @default(uuid())
+  name       String
+  role       String
+  status     String
+  email      String
+  department String
+}
+
+model Role {
+  id   String @id @default(uuid())
+  name String
+}
+
+model Attendance {
+  id        String @id @default(uuid())
+  staffId   String
+  date      String
+  status    String
+  latitude  Float
+  longitude Float
+}
+
+model LeaveRequest {
+  id      String @id @default(uuid())
+  staffId String
+  type    String
+  status  String
+  date    String
+  reason  String
+}
+
+model Message {
+  id      String @id @default(uuid())
+  from    String
+  to      String
+  subject String
+  body    String
+  date    String
+}
+
+model Payslip {
+  id         String @id @default(uuid())
+  staffId    String
+  month      String
+  amount     Float
+  deductions Float
+  net        Float
+  status     String
+}
+
+model Directive {
+  id             String  @id @default(uuid())
+  title          String
+  description    String
+  issued_by      String
+  priority       String
+  requires_ack   Boolean
+  requires_proof Boolean
+}

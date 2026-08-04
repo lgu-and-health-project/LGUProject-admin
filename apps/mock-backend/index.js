@@ -1,246 +1,153 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
 const dns = require('dns');
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
 // Force IPv4 DNS resolution for Supabase on Render to prevent ENETUNREACH IPv6 errors
 dns.setDefaultResultOrder('ipv4first');
-
-const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger.json');
-const { Client } = require('pg');
-require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const DB_FILE = path.join(__dirname, 'db.json');
+const prisma = new PrismaClient();
 
-// --- Mock Data Defaults ---
-const defaultData = {
-  staff: [
-    { id: '1', name: 'Alice Smith', role: 'STAFF', status: 'active', email: 'alice@example.com', department: 'IT' },
-    { id: '2', name: 'Bob Jones', role: 'HR', status: 'active', email: 'bob@example.com', department: 'HR' },
-    { id: '3', name: 'Charlie Brown', role: 'SUPERVISOR', status: 'active', email: 'charlie@example.com', department: 'Finance' },
-    { id: '4', name: 'Diana Prince', role: 'MAYOR', status: 'active', email: 'diana@example.com', department: 'Management' }
-  ],
-  roles: [
-    { id: 'r1', name: 'MAYOR' },
-    { id: 'r2', name: 'SUPERVISOR' },
-    { id: 'r3', name: 'HR' },
-    { id: 'r4', name: 'STAFF' }
-  ],
-  attendance: [
-    { id: 'a1', staffId: '1', date: '2023-10-01', status: 'present', latitude: 10, longitude: 20 },
-    { id: 'a2', staffId: '2', date: '2023-10-01', status: 'absent', latitude: 0, longitude: 0 },
-    { id: 'a3', staffId: '1', date: '2023-10-02', status: 'present', latitude: 10.1, longitude: 20.1 }
-  ],
-  leaveRequests: [
-    { id: 'l1', staffId: '1', type: 'Sick Leave', status: 'pending', date: '2023-10-15', reason: 'Fever' },
-    { id: 'l2', staffId: '2', type: 'Vacation', status: 'approved', date: '2023-11-01', reason: 'Family trip' }
-  ],
-  messages: [
-    { id: 'm1', from: 'System', to: '1', subject: 'Welcome', body: 'Welcome to the portal!', date: new Date().toISOString() },
-    { id: 'm2', from: 'HR', to: '1', subject: 'Policy Update', body: 'Please review the new leave policy.', date: new Date().toISOString() },
-    { id: 'm3', from: '1', to: 'HR', subject: 'Question', body: 'When is the next holiday?', date: new Date().toISOString() }
-  ],
-  payslips: [
-    { id: 'p1', staffId: '1', month: 'October 2023', amount: 5000, deductions: 500, net: 4500, status: 'paid' },
-    { id: 'p2', staffId: '1', month: 'September 2023', amount: 5000, deductions: 500, net: 4500, status: 'paid' },
-    { id: 'p3', staffId: '2', month: 'October 2023', amount: 4000, deductions: 400, net: 3600, status: 'pending' }
-  ],
-  directives: [
-    { id: 'd1', title: 'Submit Weekly Report', description: 'Please submit your weekly tasks', issued_by: 'Supervisor', priority: 'NORMAL', requires_ack: true, requires_proof: false },
-    { id: 'd2', title: 'Emergency Meeting', description: 'Gather at the town hall', issued_by: 'Mayor', priority: 'URGENT', requires_ack: true, requires_proof: true }
-  ]
-};
-
-
-let db = defaultData;
-
-let pgClient = null;
-
-async function initDb() {
-  if (process.env.DATABASE_URL) {
-    console.log("Connecting to Postgres...");
-    pgClient = new Client({ connectionString: process.env.DATABASE_URL });
-    await pgClient.connect();
-    await pgClient.query(`CREATE TABLE IF NOT EXISTS mock_store (id INT PRIMARY KEY, data JSONB)`);
-    const res = await pgClient.query(`SELECT data FROM mock_store WHERE id = 1`);
-    if (res.rows.length > 0) {
-      db = res.rows[0].data;
-      console.log("Loaded data from Postgres!");
-    } else {
-      await pgClient.query(`INSERT INTO mock_store (id, data) VALUES (1, $1)`, [db]);
-      console.log("Initialized Postgres with default data!");
-    }
-  } else {
-    console.log("Using local db.json");
-    if (fs.existsSync(DB_FILE)) {
-      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    }
-  }
-}
-
-async function saveDb() {
-  if (pgClient) {
-    await pgClient.query(`UPDATE mock_store SET data = $1 WHERE id = 1`, [JSON.stringify(db)]);
-  } else {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-  }
-}
-
-// Helper to format tRPC response since some endpoints might expect it
+// Helper to format tRPC response
 const trpcRes = (data) => ({ result: { data } });
 
-// --- Auth (tRPC mock & standard mock) ---
+// --- Health Check ---
+app.get('/', (req, res) => res.json({ status: 'ok', message: 'Prisma Backend is running!' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// --- Auth (tRPC mock) ---
 app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.login', (req, res) => res.json(trpcRes({ token: 'mock-jwt-token' })));
-app.get('/trpc/auth.me', (req, res) => res.json(trpcRes(db.staff[0])));
+app.get('/trpc/auth.me', async (req, res) => {
+  const me = await prisma.staff.findFirst();
+  res.json(trpcRes(me));
+});
 
 // --- Directives ---
-app.get('/directives/assigned', (req, res) => res.json(db.directives));
+app.get('/directives/assigned', async (req, res) => res.json(await prisma.directive.findMany()));
 app.post('/directives/:id/acknowledge', (req, res) => res.json({ success: true }));
 app.post('/directives/:id/proof', (req, res) => res.json({ success: true }));
 
 // --- HRIS (Attendance, Leaves, Payroll) ---
-// For the React/Vite dashboard
-app.post('/hris/attendance', (req, res) => {
-  const record = { id: Date.now().toString(), staffId: '1', date: new Date().toISOString(), ...req.body };
-  db.attendance.push(record);
-  saveDb();
+app.post('/hris/attendance', async (req, res) => {
+  const record = await prisma.attendance.create({
+    data: { staffId: '1', date: new Date().toISOString(), ...req.body }
+  });
   res.json(record);
 });
-app.get('/hris/attendance/me', (req, res) => res.json(db.attendance.filter(a => a.staffId === '1')));
-app.get('/hris/attendance', (req, res) => res.json(db.attendance));
+app.get('/hris/attendance/me', async (req, res) => res.json(await prisma.attendance.findMany({ where: { staffId: '1' } })));
+app.get('/hris/attendance', async (req, res) => res.json(await prisma.attendance.findMany()));
 
-// For the Expo App
-app.post('/attendance', (req, res) => {
-  const record = { id: Date.now().toString(), staffId: '1', date: new Date().toISOString(), ...req.body };
-  db.attendance.push(record);
-  saveDb();
+app.post('/attendance', async (req, res) => {
+  const record = await prisma.attendance.create({
+    data: { staffId: '1', date: new Date().toISOString(), ...req.body }
+  });
   res.json(record);
 });
-app.post('/leave-requests', (req, res) => {
-  const reqData = { id: Date.now().toString(), staffId: '1', status: 'pending', ...req.body };
-  db.leaveRequests.push(reqData);
-  saveDb();
+app.post('/leave-requests', async (req, res) => {
+  const reqData = await prisma.leaveRequest.create({
+    data: { staffId: '1', status: 'pending', ...req.body }
+  });
   res.json(reqData);
 });
-
-app.post('/hris/leave-requests', (req, res) => {
-  const reqData = { id: Date.now().toString(), staffId: '1', status: 'pending', ...req.body };
-  db.leaveRequests.push(reqData);
-  saveDb();
+app.post('/hris/leave-requests', async (req, res) => {
+  const reqData = await prisma.leaveRequest.create({
+    data: { staffId: '1', status: 'pending', ...req.body }
+  });
   res.json(reqData);
 });
-app.get('/hris/leave-requests/me', (req, res) => res.json(db.leaveRequests.filter(l => l.staffId === '1')));
-app.get('/hris/leave-requests', (req, res) => res.json(db.leaveRequests));
+app.get('/hris/leave-requests/me', async (req, res) => res.json(await prisma.leaveRequest.findMany({ where: { staffId: '1' } })));
+app.get('/hris/leave-requests', async (req, res) => res.json(await prisma.leaveRequest.findMany()));
 
-app.get('/hris/payroll/me', (req, res) => res.json(db.payslips.filter(p => p.staffId === '1')));
-app.get('/hris/payroll', (req, res) => res.json(db.payslips));
+app.get('/hris/payroll/me', async (req, res) => res.json(await prisma.payslip.findMany({ where: { staffId: '1' } })));
+app.get('/hris/payroll', async (req, res) => res.json(await prisma.payslip.findMany()));
 
 // --- MISO (Staff/Roles) ---
-app.get('/miso/staff', (req, res) => res.json(db.staff));
-app.post('/miso/staff/:id/verify', (req, res) => {
-  const s = db.staff.find(x => x.id === req.params.id);
-  if (s) {
-    s.status = 'active';
-    saveDb();
-  }
-  res.json({ success: true, staff: s });
+app.get('/miso/staff', async (req, res) => res.json(await prisma.staff.findMany()));
+app.post('/miso/staff/:id/verify', async (req, res) => {
+  try {
+    const s = await prisma.staff.update({ where: { id: req.params.id }, data: { status: 'active' } });
+    res.json({ success: true, staff: s });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
-app.post('/miso/staff/:id/suspend', (req, res) => {
-  const s = db.staff.find(x => x.id === req.params.id);
-  if (s) {
-    s.status = 'suspended';
-    saveDb();
-  }
-  res.json({ success: true, staff: s });
+app.post('/miso/staff/:id/suspend', async (req, res) => {
+  try {
+    const s = await prisma.staff.update({ where: { id: req.params.id }, data: { status: 'suspended' } });
+    res.json({ success: true, staff: s });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
-app.get('/miso/roles', (req, res) => res.json(db.roles));
-app.put('/miso/staff/:id/role', (req, res) => {
-  const s = db.staff.find(x => x.id === req.params.id);
-  if (s) {
-    s.role = req.body.role || req.body.roleId;
-    saveDb();
-  }
-  res.json({ success: true, staff: s });
+app.get('/miso/roles', async (req, res) => res.json(await prisma.role.findMany()));
+app.put('/miso/staff/:id/role', async (req, res) => {
+  try {
+    const s = await prisma.staff.update({ where: { id: req.params.id }, data: { role: req.body.role || req.body.roleId } });
+    res.json({ success: true, staff: s });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
 
-// Full Staff CRUD
-app.post('/miso/staff', (req, res) => {
-  const s = { id: Date.now().toString(), status: 'pending', ...req.body };
-  db.staff.push(s);
-  saveDb();
+app.post('/miso/staff', async (req, res) => {
+  const s = await prisma.staff.create({ data: { status: 'pending', ...req.body } });
   res.json(s);
 });
-app.put('/miso/staff/:id', (req, res) => {
-  const index = db.staff.findIndex(s => s.id === req.params.id);
-  if (index >= 0) {
-    db.staff[index] = { ...db.staff[index], ...req.body };
-    saveDb();
-    res.json(db.staff[index]);
-  } else res.status(404).json({ error: 'Not found' });
+app.put('/miso/staff/:id', async (req, res) => {
+  try {
+    const s = await prisma.staff.update({ where: { id: req.params.id }, data: req.body });
+    res.json(s);
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
-app.delete('/miso/staff/:id', (req, res) => {
-  db.staff = db.staff.filter(s => s.id !== req.params.id);
-  saveDb();
-  res.json({ success: true });
+app.delete('/miso/staff/:id', async (req, res) => {
+  try {
+    await prisma.staff.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
 
 // --- Messages (Basic CRUD) ---
-app.get('/messages', (req, res) => res.json(db.messages));
-app.get('/messages/:id', (req, res) => res.json(db.messages.find(m => m.id === req.params.id)));
-app.post('/messages', (req, res) => {
-  const msg = { id: Date.now().toString(), date: new Date().toISOString(), ...req.body };
-  db.messages.push(msg);
-  saveDb();
+app.get('/messages', async (req, res) => res.json(await prisma.message.findMany()));
+app.get('/messages/:id', async (req, res) => res.json(await prisma.message.findUnique({ where: { id: req.params.id } })));
+app.post('/messages', async (req, res) => {
+  const msg = await prisma.message.create({ data: { date: new Date().toISOString(), ...req.body } });
   res.json(msg);
 });
-app.put('/messages/:id', (req, res) => {
-  const index = db.messages.findIndex(m => m.id === req.params.id);
-  if (index >= 0) {
-    db.messages[index] = { ...db.messages[index], ...req.body };
-    saveDb();
-    res.json(db.messages[index]);
-  } else res.status(404).json({ error: 'Not found' });
+app.put('/messages/:id', async (req, res) => {
+  try {
+    const msg = await prisma.message.update({ where: { id: req.params.id }, data: req.body });
+    res.json(msg);
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
-app.delete('/messages/:id', (req, res) => {
-  db.messages = db.messages.filter(m => m.id !== req.params.id);
-  saveDb();
-  res.json({ success: true });
+app.delete('/messages/:id', async (req, res) => {
+  try {
+    await prisma.message.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
 
 // --- Payslips (Basic CRUD) ---
-app.get('/payslips', (req, res) => res.json(db.payslips));
-app.get('/payslips/:id', (req, res) => res.json(db.payslips.find(p => p.id === req.params.id)));
-app.post('/payslips', (req, res) => {
-  const slip = { id: Date.now().toString(), ...req.body };
-  db.payslips.push(slip);
-  saveDb();
+app.get('/payslips', async (req, res) => res.json(await prisma.payslip.findMany()));
+app.get('/payslips/:id', async (req, res) => res.json(await prisma.payslip.findUnique({ where: { id: req.params.id } })));
+app.post('/payslips', async (req, res) => {
+  const slip = await prisma.payslip.create({ data: req.body });
   res.json(slip);
 });
-app.put('/payslips/:id', (req, res) => {
-  const index = db.payslips.findIndex(p => p.id === req.params.id);
-  if (index >= 0) {
-    db.payslips[index] = { ...db.payslips[index], ...req.body };
-    saveDb();
-    res.json(db.payslips[index]);
-  } else res.status(404).json({ error: 'Not found' });
+app.put('/payslips/:id', async (req, res) => {
+  try {
+    const slip = await prisma.payslip.update({ where: { id: req.params.id }, data: req.body });
+    res.json(slip);
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
-app.delete('/payslips/:id', (req, res) => {
-  db.payslips = db.payslips.filter(p => p.id !== req.params.id);
-  saveDb();
-  res.json({ success: true });
+app.delete('/payslips/:id', async (req, res) => {
+  try {
+    await prisma.payslip.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (e) { res.status(404).json({ error: 'Not found' }) }
 });
 
 const PORT = process.env.PORT || 4001;
-initDb().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Mock backend running on http://0.0.0.0:${PORT}`);
-  });
-}).catch(console.error);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Prisma backend running on http://0.0.0.0:${PORT}`);
+});
