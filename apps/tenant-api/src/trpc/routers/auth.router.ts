@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { TrpcService } from '../trpc.service';
 import { AuthService } from '../../modules/auth/auth.service';
 
 @Injectable()
 export class AuthRouter {
+  private readonly logger = new Logger(AuthRouter.name);
+
   constructor(
     private trpc: TrpcService,
     private authService: AuthService,
@@ -59,7 +61,7 @@ export class AuthRouter {
           }),
         )
         .mutation(async ({ input }) => {
-          console.log(`[TRPC] auth.pair called with input:`, JSON.stringify(input));
+          this.logger.log(`[TRPC] auth.pair called with input: ${JSON.stringify(input)}`);
           return this.authService.pairDevice(input.pairingToken);
         }),
     });

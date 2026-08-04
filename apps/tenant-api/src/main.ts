@@ -36,11 +36,22 @@ async function bootstrap() {
     }
   }
 
+  app.use('/trpc', (req, res, next) => {
+    console.log(`[HTTP] ${req.method} ${req.originalUrl}`);
+    res.on('finish', () => {
+      console.log(`[HTTP] ${req.method} ${req.originalUrl} -> ${res.statusCode}`);
+    });
+    next();
+  });
+
   app.use(
     '/trpc',
     createExpressMiddleware({
       router: trpcAppRouter.appRouter,
       createContext: trpcService.createContext,
+      onError({ path, error }) {
+        console.error(`[TRPC] ${path ?? 'unknown'} failed: ${error.message}`);
+      },
     }),
   );
 
