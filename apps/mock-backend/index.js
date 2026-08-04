@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
+const { Client } = require('pg');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -48,25 +52,40 @@ const defaultData = {
   ]
 };
 
-let db = {};
 
-// Load DB
-if (fs.existsSync(DB_FILE)) {
-  try {
-    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
-    console.error("Failed to parse db.json, resetting to defaults", e);
-    db = JSON.parse(JSON.stringify(defaultData));
+let db = defaultData;
+
+let pgClient = null;
+
+async function initDb() {
+  if (process.env.DATABASE_URL) {
+    console.log("Connecting to Postgres...");
+    pgClient = new Client({ connectionString: process.env.DATABASE_URL });
+    await pgClient.connect();
+    await pgClient.query(`CREATE TABLE IF NOT EXISTS mock_store (id INT PRIMARY KEY, data JSONB)`);
+    const res = await pgClient.query(`SELECT data FROM mock_store WHERE id = 1`);
+    if (res.rows.length > 0) {
+      db = res.rows[0].data;
+      console.log("Loaded data from Postgres!");
+    } else {
+      await pgClient.query(`INSERT INTO mock_store (id, data) VALUES (1, $1)`, [db]);
+      console.log("Initialized Postgres with default data!");
+    }
+  } else {
+    console.log("Using local db.json");
+    if (fs.existsSync(DB_FILE)) {
+      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    }
   }
-} else {
-  db = JSON.parse(JSON.stringify(defaultData));
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-// Save DB helper
-const saveDb = () => {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-};
+async function saveDb() {
+  if (pgClient) {
+    await pgClient.query(`UPDATE mock_store SET data = $1 WHERE id = 1`, [JSON.stringify(db)]);
+  } else {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  }
+}
 
 // Helper to format tRPC response since some endpoints might expect it
 const trpcRes = (data) => ({ result: { data } });
@@ -215,6 +234,8 @@ app.delete('/payslips/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4001;
-app.listen(PORT, () => {
-  console.log(`Mock backend running on port ${PORT}`);
-});
+initDb().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Mock backend running on http://0.0.0.0:${PORT}`);
+  });
+}).catch(console.error);
