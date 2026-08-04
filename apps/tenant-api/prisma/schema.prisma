@@ -8,6 +8,14 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Lightweight key-value store for system-level config that must survive
+/// container restarts (e.g. the registration key obtained during device pairing).
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model Organization {
   code                String            @id
   name                String
