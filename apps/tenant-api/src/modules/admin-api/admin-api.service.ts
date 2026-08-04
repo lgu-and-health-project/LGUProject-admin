@@ -239,7 +239,7 @@ export class AdminApiService {
         '[PAIR] ✓ Registration key saved to database. Device paired successfully.',
       );
     } catch (error: any) {
-      this.logger.error(`[PAIR] ✗ Failed to pair device: ${error.message}`);
+      this.logger.error(`[PAIR] Failed to pair device: ${error.message}`);
       if (error.response?.data) {
         this.logger.error(`[PAIR] Response body: ${JSON.stringify(error.response.data)}`);
       }
