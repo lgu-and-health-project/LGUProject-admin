@@ -31,7 +31,10 @@ function extractTrpcData(axiosRes: any) {
 }
 
 export const authApi = {
-  pair: (pairingToken: string) => apiClient.post('/trpc/auth.pair', { json: { pairingToken } }),
+  pair: (pairingToken: string) =>
+    apiClient
+      .post('/trpc/auth.pair', { json: { pairingToken } })
+      .then((res) => ({ ...res, _trpc: extractTrpcData(res) })),
   onboard: (data: any) => apiClient.post('/trpc/auth.onboard', { json: data }).then(res => ({ ...res, _trpc: extractTrpcData(res) })),
   login: (data: any) => apiClient.post('/trpc/auth.login', { json: data }).then(res => ({ ...res, _trpc: extractTrpcData(res) })),
   me: () => apiClient.get('/trpc/auth.me'),

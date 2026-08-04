@@ -24,7 +24,14 @@ const trpcRes = (data) => ({ result: { data } });
 app.get('/', (req, res) => res.json({ status: 'ok', message: 'Prisma Backend is running!' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-app.post('/trpc/auth.pair', (req, res) => res.json(trpcRes({ success: true })));
+app.post('/trpc/auth.pair', (req, res) => {
+  res.status(501).json({
+    error: {
+      message: 'Device pairing must be sent to tenant-api, not mock-backend.',
+      code: 'NOT_IMPLEMENTED'
+    }
+  });
+});
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
 app.post('/trpc/auth.login', (req, res) => res.json(trpcRes({ token: 'mock-jwt-token' })));
 app.get('/trpc/auth.me', async (req, res) => {

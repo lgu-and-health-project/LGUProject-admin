@@ -17,14 +17,17 @@ export default function SetupScreen() {
     setError('');
     setLoading(true);
     try {
-      await authApi.pair(pairingToken);
+      const res = await authApi.pair(pairingToken);
+      if (!res._trpc?.success) {
+        throw new Error('Pairing did not complete.');
+      }
       // Backend restarts, we wait a bit before moving to step 2
       setTimeout(() => {
         setStep(2);
         setLoading(false);
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to pair device. Check token.');
+      setError(err.response?.data?.message || err.message || 'Failed to pair device. Check token.');
       setLoading(false);
     }
   };
