@@ -112,11 +112,34 @@ app.delete('/miso/staff/:id', async (req, res) => {
 });
 
 // --- Messages (Basic CRUD) ---
-app.get('/messages', async (req, res) => res.json(await prisma.message.findMany()));
+app.get('/messages', async (req, res) => {
+  const msgs = await prisma.message.findMany();
+  res.json(msgs.map(m => ({
+    id: m.id,
+    from_employee_id: m.from,
+    to_employee_id: m.to,
+    body: m.body,
+    created_at: m.date
+  })));
+});
 app.get('/messages/:id', async (req, res) => res.json(await prisma.message.findUnique({ where: { id: req.params.id } })));
 app.post('/messages', async (req, res) => {
-  const msg = await prisma.message.create({ data: { date: new Date().toISOString(), ...req.body } });
-  res.json(msg);
+  try {
+    const msg = await prisma.message.create({ 
+      data: { 
+        id: req.body.id,
+        from: req.body.from_employee_id || req.body.from || 'Unknown',
+        to: req.body.to_employee_id || req.body.to || 'Unknown',
+        subject: req.body.subject || 'No Subject',
+        body: req.body.body || '',
+        date: req.body.created_at || req.body.date || new Date().toISOString()
+      } 
+    });
+    res.json(msg);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
 });
 app.put('/messages/:id', async (req, res) => {
   try {
