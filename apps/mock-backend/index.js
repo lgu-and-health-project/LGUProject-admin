@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { Pool } = require('pg');
 require('dotenv').config();
 
 // Force IPv4 DNS resolution for Supabase on Render to prevent ENETUNREACH IPv6 errors
@@ -11,7 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const prisma = new PrismaClient();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 // Helper to format tRPC response
 const trpcRes = (data) => ({ result: { data } });
