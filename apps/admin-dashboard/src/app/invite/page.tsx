@@ -2,9 +2,11 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Eye, EyeOff, Loader2, ShieldCheck, X } from "lucide-react";
 import { adminService } from "@/services/adminService";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import sentroLogo from "@/assets/sentro.svg";
 
 function InviteForm() {
   const router = useRouter();
@@ -194,10 +196,8 @@ export default function InvitePage() {
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/2" />
       
       <div className="mb-8 relative z-10 text-center">
-        <div className="w-12 h-12 bg-primary flex items-center justify-center text-white font-bold text-xl rounded-xl shadow-lg mx-auto mb-4">
-          LP
-        </div>
-        <h1 className="text-xl font-bold text-foreground">Admin Portal</h1>
+        <Image src={sentroLogo} alt="Sentro Logo" className="w-16 h-16 bg-white p-1 rounded-full shadow-lg mx-auto mb-4" />
+        <h1 className="text-2xl tracking-wide font-bold text-foreground">SENTRO</h1>
       </div>
 
       <div className="relative z-10 w-full max-w-md">

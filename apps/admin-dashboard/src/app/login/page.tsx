@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { authService } from "@/services/auth";
 import { Eye, EyeOff } from "lucide-react";
+import sentroLogo from "@/assets/sentro.svg";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -32,8 +34,9 @@ export default function Login() {
   return (
     <main className="flex h-screen w-full bg-background overflow-hidden">
       <section className="w-1/4 h-full bg-surface shadow-2xl z-10 flex flex-col justify-center px-8 xl:px-12 relative border-r border-text-secondary/10">
-        <div className="absolute top-8 left-8 xl:left-12">
-          {/* Logo Placeholder */}
+        <div className="absolute top-8 left-8 xl:left-12 flex items-center">
+          <Image src={sentroLogo} alt="Sentro Logo" className="w-10 h-10 bg-white p-0.5 rounded-full shadow-sm mr-3" />
+          <span className="font-bold text-foreground tracking-wide text-lg">SENTRO</span>
         </div>
 
         <div className="w-full max-w-sm mx-auto">
@@ -131,8 +134,8 @@ export default function Login() {
 
         {/* Showcase / Information Card */}
         <div className="relative z-10 p-12 lg:p-16 text-center max-w-3xl backdrop-blur-xl bg-surface/40 dark:bg-surface/20 border border-white/20 dark:border-white/5 rounded-[2rem] shadow-2xl">
-          <h2 className="text-4xl lg:text-5xl font-extrabold text-foreground mb-6 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">
-            LGU Platform Services
+          <h2 className="text-4xl lg:text-5xl font-extrabold text-foreground mb-6 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70">
+            SENTRO
           </h2>
           <p className="text-lg lg:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
             Experience the next generation of administrative management.
