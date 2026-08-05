@@ -55,7 +55,7 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 4001);
+  await app.listen(process.env.PORT ?? 4001, '0.0.0.0');
 }
 bootstrap().catch((err) => {
   console.error('Failed to start application', err);

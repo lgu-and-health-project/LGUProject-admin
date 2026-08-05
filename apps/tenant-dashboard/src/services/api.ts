@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // The tenant API should be running on port 4001 locally, or whatever URL is configured
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,

@@ -1,0 +1,6 @@
+FROM alpine
+WORKDIR /test
+COPY . .
+RUN ls -la
+RUN ls -la apps
+RUN find /test -name package.json

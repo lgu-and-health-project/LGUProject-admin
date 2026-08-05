@@ -1,29 +1,29 @@
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ARG VITE_API_URL=http://localhost:4001
-ENV VITE_API_URL=$VITE_API_URL
-
-# Install pnpm
 RUN npm install -g pnpm
 
-# Copy package files
 COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
 
-# Install dependencies
 RUN pnpm install --filter tenant-dashboard...
 
-# Copy source code
 COPY apps/tenant-dashboard ./apps/tenant-dashboard
 
-# Build the app
 WORKDIR /app/apps/tenant-dashboard
+
 RUN pnpm build
 
-# Serve with a simple static server
-RUN npm install -g serve
+
+# Production stage
+FROM nginx:alpine
+
+COPY --from=builder /app/apps/tenant-dashboard/dist /usr/share/nginx/html
+
+COPY apps/tenant-dashboard/nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 4002
 
-CMD ["serve", "-s", "dist", "-p", "4002"]
+CMD ["nginx", "-g", "daemon off;"]
