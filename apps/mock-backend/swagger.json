@@ -21,6 +21,12 @@
       }
     },
     "/attendance": {
+      "get": {
+        "summary": "Get all attendance records",
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      },
       "post": {
         "summary": "Clock In / Out",
         "requestBody": {
@@ -47,6 +53,12 @@
       }
     },
     "/leave-requests": {
+      "get": {
+        "summary": "Get all leave requests",
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      },
       "post": {
         "summary": "File an OT/Leave Request",
         "requestBody": {

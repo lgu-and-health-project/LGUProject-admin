@@ -54,6 +54,20 @@ app.get('/directives/assigned', async (req, res) => {
     requires_proof: d.requires_proof
   })));
 });
+app.get('/directives', async (req, res) => {
+  const dirs = await prisma.directive.findMany();
+  res.json(dirs.map(d => ({
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    issued_by: d.issued_by,
+    issued_by_role: 'ADMIN',
+    priority: d.priority,
+    deadline: null,
+    requires_ack: d.requires_ack,
+    requires_proof: d.requires_proof
+  })));
+});
 app.post('/directives/assigned', async (req, res) => {
   try {
     const d = await prisma.directive.create({ 
@@ -90,6 +104,7 @@ app.post('/hris/attendance', async (req, res) => {
 });
 app.get('/hris/attendance/me', async (req, res) => res.json(await prisma.attendance.findMany({ where: { staffId: '1' } })));
 app.get('/hris/attendance', async (req, res) => res.json(await prisma.attendance.findMany()));
+app.get('/attendance', async (req, res) => res.json(await prisma.attendance.findMany()));
 
 app.post('/attendance', async (req, res) => {
   try {
@@ -135,6 +150,7 @@ app.post('/hris/leave-requests', async (req, res) => {
     res.json(reqData);
   } catch (e) { res.status(500).json({ error: e.message }) }
 });
+app.get('/leave-requests', async (req, res) => res.json(await prisma.leaveRequest.findMany()));
 app.get('/hris/leave-requests/me', async (req, res) => res.json(await prisma.leaveRequest.findMany({ where: { staffId: '1' } })));
 app.get('/hris/leave-requests', async (req, res) => res.json(await prisma.leaveRequest.findMany()));
 
