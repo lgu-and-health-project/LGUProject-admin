@@ -9,8 +9,7 @@ import {
   Users,
   Activity,
   Cloud,
-  LogOut,
-  Landmark
+  LogOut
 } from 'lucide-react';
 import HomeView from './views/HomeView';
 import ServerSettingsView from './views/ServerSettingsView';
@@ -19,6 +18,7 @@ import LicenseManagerView from './views/LicenseManagerView';
 import AccountsView from './views/AccountsView';
 import AuditLogsView from './views/AuditLogsView';
 import NetworkSyncView from './views/NetworkSyncView';
+import sentroLogo from '../assets/sentro.svg';
 
 export default function DashboardScreen() {
   const location = useLocation();
@@ -51,7 +51,7 @@ export default function DashboardScreen() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="flex-start mb-4" style={{ padding: '0.5rem' }}>
-          <Landmark size={32} color="var(--primary)" />
+          <img src={sentroLogo} alt="Sentro Logo" style={{ width: 32, height: 32 }} />
           <div>
             <h3 style={{ fontSize: '1.25rem', lineHeight: 1 }}>LGU Node</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>MISO Control Panel</span>

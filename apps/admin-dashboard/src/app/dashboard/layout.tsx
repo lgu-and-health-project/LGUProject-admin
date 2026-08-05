@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   Activity
 } from "lucide-react";
 import { authService } from "@/services/auth";
+import sentroLogo from "@/assets/sentro.svg";
 
 export default function DashboardLayout({
   children,
@@ -54,9 +56,7 @@ export default function DashboardLayout({
       >
         {/* Sidebar Header (Logo + App Name) */}
         <div className="flex items-center h-16 px-4 border-b border-text-secondary/10 overflow-hidden whitespace-nowrap">
-          <div className="h-8 w-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
-            <span className="text-white font-bold text-sm tracking-tighter">LP</span>
-          </div>
+          <Image src={sentroLogo} alt="Sentro Logo" className="h-8 w-8 mr-3 flex-shrink-0" />
           <span
             className={`font-bold text-foreground transition-opacity duration-300 ${
               collapsed ? "opacity-0 hidden" : "opacity-100 block"
