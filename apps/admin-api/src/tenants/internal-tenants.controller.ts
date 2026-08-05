@@ -23,7 +23,12 @@ export class InternalTenantsController {
     // The guard handles all verification checks. If we reach here, it's valid.
     return {
       valid: true as const,
-      tenant: auth.tenant,
+      tenant: {
+        ...auth.tenant,
+        psgcCode: (auth.tenant as any).psgcLocation?.code,
+        name: (auth.tenant as any).psgcLocation?.areaName,
+        level: (auth.tenant as any).psgcLocation?.level,
+      },
       expectedEmail: auth.tenant.sysadminEmail,
     };
   }
