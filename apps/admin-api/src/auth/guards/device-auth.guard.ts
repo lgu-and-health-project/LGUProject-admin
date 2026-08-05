@@ -29,7 +29,9 @@ export class DeviceAuthGuard implements CanActivate {
       where: { registrationKey },
       include: { 
         device: true,
-        tenant: true 
+        tenant: {
+          include: { psgcLocation: true }
+        } 
       },
     });
 

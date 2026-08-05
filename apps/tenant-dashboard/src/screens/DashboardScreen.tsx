@@ -3,14 +3,22 @@ import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { authApi } from '../services/api';
 import { 
   LayoutDashboard, 
-  Clock, 
-  Users, 
+  Settings, 
+  Database,
+  Shield,
+  Users,
+  Activity,
+  Cloud,
   LogOut,
   Landmark
 } from 'lucide-react';
 import HomeView from './views/HomeView';
-import AttendanceView from './views/AttendanceView';
-import StaffView from './views/StaffView';
+import ServerSettingsView from './views/ServerSettingsView';
+import DatabaseManagerView from './views/DatabaseManagerView';
+import LicenseManagerView from './views/LicenseManagerView';
+import AccountsView from './views/AccountsView';
+import AuditLogsView from './views/AuditLogsView';
+import NetworkSyncView from './views/NetworkSyncView';
 
 export default function DashboardScreen() {
   const location = useLocation();
@@ -30,8 +38,12 @@ export default function DashboardScreen() {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/attendance', label: 'My Attendance', icon: Clock },
-    { path: '/staff', label: 'Staff Directory', icon: Users },
+    { path: '/settings', label: 'Server Settings', icon: Settings },
+    { path: '/database', label: 'Manage Databases', icon: Database },
+    { path: '/license', label: 'Manage Licensing', icon: Shield },
+    { path: '/accounts', label: 'Accounts & Roles', icon: Users },
+    { path: '/audit-logs', label: 'Audit Logs', icon: Activity },
+    { path: '/network', label: 'Network & Sync', icon: Cloud },
   ];
 
   return (
@@ -42,7 +54,7 @@ export default function DashboardScreen() {
           <Landmark size={32} color="var(--primary)" />
           <div>
             <h3 style={{ fontSize: '1.25rem', lineHeight: 1 }}>LGU Node</h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tenant Server</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>MISO Control Panel</span>
           </div>
         </div>
 
@@ -71,7 +83,7 @@ export default function DashboardScreen() {
             </div>
             <div>
               <p style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.875rem' }}>{user?.email || 'Loading...'}</p>
-              <p style={{ fontSize: '0.75rem' }}>{user?.role || 'Staff'}</p>
+              <p style={{ fontSize: '0.75rem' }}>{user?.role || 'System Admin'}</p>
             </div>
           </div>
           <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={handleLogout}>
@@ -84,8 +96,12 @@ export default function DashboardScreen() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<HomeView user={user} />} />
-          <Route path="/attendance" element={<AttendanceView />} />
-          <Route path="/staff" element={<StaffView />} />
+          <Route path="/settings" element={<ServerSettingsView />} />
+          <Route path="/database" element={<DatabaseManagerView />} />
+          <Route path="/license" element={<LicenseManagerView />} />
+          <Route path="/accounts" element={<AccountsView />} />
+          <Route path="/audit-logs" element={<AuditLogsView />} />
+          <Route path="/network" element={<NetworkSyncView />} />
         </Routes>
       </main>
     </div>
