@@ -196,7 +196,7 @@ export default function InvitePage() {
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/2" />
       
       <div className="mb-8 relative z-10 text-center">
-        <Image src={sentroLogo} alt="Sentro Logo" className="w-16 h-16 bg-white p-1 rounded-full shadow-lg mx-auto mb-4" />
+        <Image src={sentroLogo} alt="Sentro Logo" className="w-16 h-16 bg-slate-800 p-1 rounded-full shadow-lg mx-auto mb-4" />
         <h1 className="text-2xl tracking-wide font-bold text-foreground">SENTRO</h1>
       </div>
 

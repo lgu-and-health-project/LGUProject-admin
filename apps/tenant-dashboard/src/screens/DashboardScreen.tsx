@@ -51,7 +51,7 @@ export default function DashboardScreen() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="flex-start mb-4" style={{ padding: '0.5rem' }}>
-          <img src={sentroLogo} alt="Sentro Logo" style={{ width: 32, height: 32, backgroundColor: 'white', borderRadius: '50%', padding: '2px' }} />
+          <img src={sentroLogo} alt="Sentro Logo" style={{ width: 32, height: 32, backgroundColor: '#1e293b', borderRadius: '50%', padding: '2px' }} />
           <div>
             <h3 style={{ fontSize: '1.25rem', lineHeight: 1, letterSpacing: '0.05em' }}>SENTRO</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>MISO Control Panel</span>

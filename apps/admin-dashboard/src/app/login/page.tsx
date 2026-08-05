@@ -35,7 +35,7 @@ export default function Login() {
     <main className="flex h-screen w-full bg-background overflow-hidden">
       <section className="w-1/4 h-full bg-surface shadow-2xl z-10 flex flex-col justify-center px-8 xl:px-12 relative border-r border-text-secondary/10">
         <div className="absolute top-8 left-8 xl:left-12 flex items-center">
-          <Image src={sentroLogo} alt="Sentro Logo" className="w-10 h-10 bg-white p-0.5 rounded-full shadow-sm mr-3" />
+          <Image src={sentroLogo} alt="Sentro Logo" className="w-10 h-10 bg-slate-800 p-0.5 rounded-full shadow-sm mr-3" />
           <span className="font-bold text-foreground tracking-wide text-lg">SENTRO</span>
         </div>
 

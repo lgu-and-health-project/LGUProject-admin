@@ -56,7 +56,7 @@ export default function DashboardLayout({
       >
         {/* Sidebar Header (Logo + App Name) */}
         <div className="flex items-center h-16 px-4 border-b border-text-secondary/10 overflow-hidden whitespace-nowrap">
-          <Image src={sentroLogo} alt="Sentro Logo" className="h-8 w-8 mr-3 flex-shrink-0 bg-white rounded-full p-0.5" />
+          <Image src={sentroLogo} alt="Sentro Logo" className="h-8 w-8 mr-3 flex-shrink-0 bg-slate-800 rounded-full p-0.5" />
           <span
             className={`font-bold text-foreground tracking-wide transition-opacity duration-300 ${
               collapsed ? "opacity-0 hidden" : "opacity-100 block"
