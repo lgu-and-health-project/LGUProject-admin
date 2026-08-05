@@ -24,3 +24,6 @@ HRISApplication/
 .windsurf/
 .agents/
 skills-lock.json
+
+/scripts
+/scripts/*
