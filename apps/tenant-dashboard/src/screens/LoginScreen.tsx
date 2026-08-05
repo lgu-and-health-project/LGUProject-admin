@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { LogIn, Landmark } from 'lucide-react';
 
