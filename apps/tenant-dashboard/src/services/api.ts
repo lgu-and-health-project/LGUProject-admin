@@ -35,6 +35,7 @@ function extractTrpcData(axiosRes: any) {
 }
 
 export const authApi = {
+  status: () => apiClient.get('/trpc/auth.status').then(res => extractTrpcData(res)),
   pair: (pairingToken: string) =>
     apiClient
       .post('/trpc/auth.pair', { pairingToken })

@@ -18,6 +18,10 @@ export class AuthRouter {
         return { user: ctx.user };
       }),
 
+      status: this.trpc.publicProcedure.query(async () => {
+        return this.authService.getServerStatus();
+      }),
+
       login: this.trpc.publicProcedure
         .input(
           z.object({

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { LogIn, Landmark } from 'lucide-react';
@@ -9,6 +9,19 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkingConfig, setCheckingConfig] = useState(true);
+
+  useEffect(() => {
+    authApi.status().then((res) => {
+      if (res.status === 'NEEDS_PAIRING' || res.status === 'NEEDS_ONBOARDING') {
+        navigate('/setup');
+      } else {
+        setCheckingConfig(false);
+      }
+    }).catch(() => {
+      setCheckingConfig(false); // Default to login if error
+    });
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +36,16 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
+
+  if (checkingConfig) {
+    return (
+      <div className="auth-wrapper">
+        <div className="panel auth-card text-center">
+          <p>Checking server configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-wrapper">
@@ -67,9 +90,7 @@ export default function LoginScreen() {
         </form>
 
         <div className="text-center mt-4">
-          <Link to="/setup" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            First time setting up this server? Initialize here.
-          </Link>
+          {/* Setup link is hidden if server is already configured */}
         </div>
       </div>
     </div>

@@ -171,6 +171,42 @@ export class AuthService {
     return this.buildAuthPayload(user);
   }
 
+  async getServerStatus() {
+    const registrationKey = await this.adminApiService.getRegistrationKey();
+    if (!registrationKey) {
+      return { status: 'NEEDS_PAIRING' };
+    }
+
+    const adminResponse: any = await this.adminApiService.verifyRegistrationKey(registrationKey);
+
+    if (!adminResponse.valid) {
+      if (adminResponse.reason === 'NOT_FOUND') {
+        return { status: 'NEEDS_PAIRING' }; // Key revoked or deleted
+      }
+      if (adminResponse.reason === 'SUSPENDED') {
+        return { status: 'SUSPENDED' };
+      }
+      return { status: 'NEEDS_PAIRING' };
+    }
+
+    const expectedEmail = adminResponse.expectedEmail;
+    
+    // Check if sysadmin is created
+    const sysadminUser = await this.prisma.staffUser.findFirst({
+      where: { email: expectedEmail, baseRole: 'sysadmin' },
+    });
+
+    if (!sysadminUser) {
+      return { 
+        status: 'NEEDS_ONBOARDING', 
+        expectedEmail,
+        tenantName: adminResponse.tenant?.name 
+      };
+    }
+
+    return { status: 'CONFIGURED' };
+  }
+
   async pairDevice(pairingToken: string) {
     return this.adminApiService.pairDeviceAndSave(pairingToken);
   }

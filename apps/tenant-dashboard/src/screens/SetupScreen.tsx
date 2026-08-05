@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { KeyRound, ServerCog, ArrowRight } from 'lucide-react';
@@ -11,7 +11,25 @@ export default function SetupScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkingConfig, setCheckingConfig] = useState(true);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    authApi.status().then((res) => {
+      if (res.status === 'CONFIGURED') {
+        navigate('/login');
+      } else if (res.status === 'NEEDS_ONBOARDING') {
+        setStep(2);
+        if (res.expectedEmail) setEmail(res.expectedEmail);
+        setCheckingConfig(false);
+      } else {
+        setStep(1);
+        setCheckingConfig(false);
+      }
+    }).catch(() => {
+      setCheckingConfig(false);
+    });
+  }, [navigate]);
 
   const handlePinChange = (index: number, value: string) => {
     const char = value
@@ -76,9 +94,23 @@ export default function SetupScreen() {
         throw new Error('Pairing did not complete.');
       }
       // Backend restarts, we wait a bit before moving to step 2
-      setTimeout(() => {
-        setStep(2);
-        setLoading(false);
+      // Let the status effect catch the update, or we can just manually proceed
+      // The onboard step needs the expected email from the backend. 
+      // We will refetch status to proceed cleanly.
+      setTimeout(async () => {
+        try {
+          const statusRes = await authApi.status();
+          if (statusRes.status === 'NEEDS_ONBOARDING') {
+            setStep(2);
+            if (statusRes.expectedEmail) setEmail(statusRes.expectedEmail);
+          } else if (statusRes.status === 'CONFIGURED') {
+            navigate('/login');
+          }
+        } catch (e) {
+          setError('Failed to fetch setup status after pairing.');
+        } finally {
+          setLoading(false);
+        }
       }, 3000);
     } catch (err: any) {
       setError(
@@ -103,6 +135,16 @@ export default function SetupScreen() {
       setLoading(false);
     }
   };
+
+  if (checkingConfig) {
+    return (
+      <div className="auth-wrapper">
+        <div className="panel auth-card text-center">
+          <p>Checking server configuration...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-wrapper">
@@ -149,13 +191,14 @@ export default function SetupScreen() {
         ) : (
           <form onSubmit={handleOnboard}>
             <div className="input-group">
-              <label>Admin Email</label>
+              <label>Sysadmin Email</label>
               <input
                 type="email"
                 className="input-field"
                 placeholder="sysadmin@lgu.gov.ph"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                disabled
+                style={{ backgroundColor: 'var(--surface-hover)', cursor: 'not-allowed' }}
                 required
               />
             </div>
