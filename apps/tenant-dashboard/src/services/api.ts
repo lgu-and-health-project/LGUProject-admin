@@ -45,19 +45,27 @@ export const authApi = {
   me: () => apiClient.get('/trpc/auth.me'),
 };
 
-export const hrisApi = {
-  clockIn: (lat: number, lng: number) => apiClient.post('/hris/attendance', { latitude: lat, longitude: lng }),
-  getMyAttendance: () => apiClient.get('/hris/attendance/me'),
-  getAllAttendance: () => apiClient.get('/hris/attendance'),
-  getMyLeaveRequests: () => apiClient.get('/hris/leave-requests/me'),
-  createLeaveRequest: (data: any) => apiClient.post('/hris/leave-requests', data),
-  getMyPayroll: () => apiClient.get('/hris/payroll/me'),
-};
-
 export const misoApi = {
   getStaff: () => apiClient.get('/miso/staff'),
   verifyStaff: (id: string) => apiClient.post(`/miso/staff/${id}/verify`),
   suspendStaff: (id: string) => apiClient.post(`/miso/staff/${id}/suspend`),
   getRoles: () => apiClient.get('/miso/roles'),
   updateStaffRole: (id: string, roleId: string) => apiClient.put(`/miso/staff/${id}/role`, { roleId }),
+  
+  // Mock endpoints for the new dashboard features
+  getAuditLogs: () => Promise.resolve({
+    data: [
+      { timestamp: new Date().toISOString(), action: 'LOGIN_SUCCESS', actorEmail: 'sysadmin@lgu.gov.ph', details: 'Dashboard login', ipAddress: '192.168.1.5' },
+      { timestamp: new Date(Date.now() - 3600000).toISOString(), action: 'UPDATE_LICENSE', actorEmail: 'sysadmin@lgu.gov.ph', details: 'Verified central license', ipAddress: '192.168.1.5' },
+      { timestamp: new Date(Date.now() - 86400000).toISOString(), action: 'SYSTEM_START', actorEmail: 'SYSTEM', details: 'Docker containers initialized', ipAddress: 'localhost' },
+    ]
+  }),
+  getSyncStatus: () => Promise.resolve({
+    data: {
+      status: 'connected',
+      latency: 24,
+      pendingRecords: 142,
+      lastSync: new Date(Date.now() - 300000).toISOString()
+    }
+  }),
 };
