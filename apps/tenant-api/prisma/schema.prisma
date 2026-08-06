@@ -345,10 +345,9 @@ model Device {
   registeredAt   DateTime  @default(now())
   lastSeenAt     DateTime?
 
-  staffUser      StaffUser       @relation("DeviceOwner", fields: [staffUserId], references: [id])
-  registeredBy   StaffUser       @relation("DeviceRegisterer", fields: [registeredById], references: [id])
-  sessions       Session[]
-  attendanceLogs AttendanceLog[]
+  staffUser    StaffUser @relation("DeviceOwner", fields: [staffUserId], references: [id])
+  registeredBy StaffUser @relation("DeviceRegisterer", fields: [registeredById], references: [id])
+  sessions     Session[]
 
   @@index([staffUserId])
 }
@@ -366,8 +365,6 @@ model GeofenceZone {
 
   org    Organization @relation(fields: [orgCode], references: [code])
   office Office?      @relation(fields: [officeId], references: [id])
-
-  attendanceLogs AttendanceLog[]
 
   @@index([orgCode])
 }
@@ -408,22 +405,15 @@ model Attachment {
   longitude       Float?
   retentionPolicy String    @default("temporary") // temporary | permanent
   expiresAt       DateTime?
-  leaveRequestId  String?
-  attendanceLogId String?
   createdAt       DateTime  @default(now())
 
-  org           Organization   @relation(fields: [orgCode], references: [code])
-  uploadedBy    StaffUser      @relation(fields: [uploadedById], references: [id])
-  leaveRequest  LeaveRequest?  @relation(fields: [leaveRequestId], references: [id])
-  attendanceLog AttendanceLog? @relation(fields: [attendanceLogId], references: [id])
+  org        Organization @relation(fields: [orgCode], references: [code])
+  uploadedBy StaffUser    @relation(fields: [uploadedById], references: [id])
 
   @@index([orgCode])
-  @@index([leaveRequestId])
-  @@index([attendanceLogId])
 }
 
 // =========================================================================
-
 
 // =========================================================================
 // CITIZEN-FACING (unchanged in shape, kept for completeness)
