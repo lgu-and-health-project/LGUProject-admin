@@ -10,6 +10,7 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
 import { HrisModule } from './modules/hris/hris.module';
 import { MisoModule } from './modules/miso/miso.module';
 import { TrpcModule } from './trpc/trpc.module';
+import { RelayAgentModule } from './modules/relay-agent/relay-agent.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TrpcModule } from './trpc/trpc.module';
     HrisModule,
     MisoModule,
     TrpcModule,
+    RelayAgentModule,
   ],
   providers: [AppService],
 })
