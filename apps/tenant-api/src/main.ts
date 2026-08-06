@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
@@ -18,6 +19,15 @@ async function bootstrap() {
     ],
     credentials: true,
   });
+
+  const config = new DocumentBuilder()
+    .setTitle('Tenant API')
+    .setDescription('The internal API for the LGU Tenant Gateway')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document);
 
   const trpcService = app.get(TrpcService);
   const trpcAppRouter = app.get(TrpcAppRouter);
