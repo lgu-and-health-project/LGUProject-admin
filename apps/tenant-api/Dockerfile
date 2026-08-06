@@ -5,9 +5,6 @@ WORKDIR /app
 ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 ENV DATABASE_URL=$DATABASE_URL
 
-ARG DIRECT_URL=postgresql://postgres:postgres@localhost:5432/postgres
-ENV DIRECT_URL=$DIRECT_URL
-
 RUN npm install -g pnpm
 
 COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -29,9 +26,6 @@ WORKDIR /app
 
 ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 ENV DATABASE_URL=$DATABASE_URL
-
-ARG DIRECT_URL=postgresql://postgres:postgres@localhost:5432/postgres
-ENV DIRECT_URL=$DIRECT_URL
 
 RUN npm install -g pnpm
 
