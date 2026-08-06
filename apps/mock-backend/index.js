@@ -8,12 +8,36 @@ require('dotenv').config();
 
 dns.setDefaultResultOrder('ipv4first');
 
+const jwt = require('jsonwebtoken');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'bae9b57c89d66c332c050b9db95414ae42d131d60bff9facfa3bf54ea1357ae9361fe6c748124d3c6bb601cc8efcc62b80835d350f21f7a2313f97b17aa3312f');
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+};
+
+app.use('/hris', authMiddleware);
+app.use('/miso', authMiddleware);
+app.use('/directives', authMiddleware);
+app.use('/messages', authMiddleware);
+app.use('/payslips', authMiddleware);
+app.use('/attendance', authMiddleware);
+app.use('/leave-requests', authMiddleware);
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -33,10 +57,11 @@ app.post('/trpc/auth.pair', (req, res) => {
   });
 });
 app.post('/trpc/auth.onboard', (req, res) => res.json(trpcRes({ success: true })));
-app.post('/trpc/auth.login', (req, res) => res.json(trpcRes({ token: 'mock-jwt-token' })));
-app.get('/trpc/auth.me', async (req, res) => {
-  const me = await prisma.staff.findFirst();
-  res.json(trpcRes(me));
+app.post('/trpc/auth.login', (req, res) => res.status(400).json({ error: { message: 'Use tenant-api to login' } }));
+app.get('/trpc/auth.me', authMiddleware, async (req, res) => {
+  // Try to find staff by ID or Email (since sub is the tenant-api userId)
+  // For mock simplicity, just return the user payload
+  res.json(trpcRes(req.user));
 });
 
 // --- Directives ---
