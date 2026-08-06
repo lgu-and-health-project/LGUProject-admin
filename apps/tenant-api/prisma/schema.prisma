@@ -264,10 +264,6 @@ model StaffUser {
   attachmentsUploaded Attachment[]
   auditLogs           AuditLog[]
   announcements       Announcement[]
-  attendanceLogs      AttendanceLog[]
-  payrolls            Payroll[]
-  leaveRequests       LeaveRequest[]            @relation("LeaveRequester")
-  approvedLeaves      LeaveRequest[]            @relation("LeaveApprover")
   invitesSent         StaffInvite[]             @relation("InvitedBy")
 
   @@unique([orgCode, employeeCode])
@@ -427,84 +423,7 @@ model Attachment {
 }
 
 // =========================================================================
-// ATTENDANCE
-// =========================================================================
 
-model AttendanceLog {
-  id               String   @id @default(uuid())
-  staffUserId      String
-  deviceId         String?
-  geofenceZoneId   String?
-  status           String // "online" | "offline" | "absent" | "excused"
-  latitude         Float?
-  longitude        Float?
-  geofenceVerified Boolean  @default(false)
-  facialVerified   Boolean  @default(false)
-  notes            String?
-  timestamp        DateTime @default(now())
-
-  staffUser    StaffUser     @relation(fields: [staffUserId], references: [id])
-  device       Device?       @relation(fields: [deviceId], references: [id])
-  geofenceZone GeofenceZone? @relation(fields: [geofenceZoneId], references: [id])
-  attachments  Attachment[]
-
-  @@index([staffUserId])
-  @@index([status])
-}
-
-// =========================================================================
-// LEAVE / FIELD WORK
-// =========================================================================
-
-model LeaveRequest {
-  id           String   @id @default(uuid())
-  staffUserId  String
-  type         String // "formal_leave" | "field_work"
-  reason       String
-  startDate    DateTime
-  endDate      DateTime
-  status       String   @default("pending") // pending | approved | rejected
-  approvedById String?
-  createdAt    DateTime @default(now())
-
-  staffUser   StaffUser    @relation("LeaveRequester", fields: [staffUserId], references: [id])
-  approvedBy  StaffUser?   @relation("LeaveApprover", fields: [approvedById], references: [id])
-  attachments Attachment[]
-
-  @@index([staffUserId])
-}
-
-// =========================================================================
-// PAYROLL — deductions broken into line items rather than one flat number,
-// so the employee-facing breakdown tab has something to render.
-// =========================================================================
-
-model Payroll {
-  id          String   @id @default(uuid())
-  staffUserId String
-  periodStart DateTime
-  periodEnd   DateTime
-  grossPay    Float
-  netPay      Float
-  status      String   @default("pending") // pending | paid
-  createdAt   DateTime @default(now())
-
-  staffUser  StaffUser          @relation(fields: [staffUserId], references: [id])
-  deductions PayrollDeduction[]
-
-  @@index([staffUserId])
-}
-
-model PayrollDeduction {
-  id        String @id @default(uuid())
-  payrollId String
-  type      String // "GSIS" | "PhilHealth" | "Pag-IBIG" | "Withholding Tax" | "Loan"
-  amount    Float
-
-  payroll Payroll @relation(fields: [payrollId], references: [id])
-
-  @@index([payrollId])
-}
 
 // =========================================================================
 // CITIZEN-FACING (unchanged in shape, kept for completeness)
