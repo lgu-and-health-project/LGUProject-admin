@@ -16,6 +16,8 @@ app.use(cors());
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+const JWT_SECRET = process.env.JWT_SECRET || 'bae9b57c89d66c332c050b9db95414ae42d131d60bff9facfa3bf54ea1357ae9361fe6c748124d3c6bb601cc8efcc62b80835d350f21f7a2313f97b17aa3312f';
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -23,13 +25,29 @@ const authMiddleware = (req, res, next) => {
   }
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'bae9b57c89d66c332c050b9db95414ae42d131d60bff9facfa3bf54ea1357ae9361fe6c748124d3c6bb601cc8efcc62b80835d350f21f7a2313f97b17aa3312f');
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };
+
+/**
+ * Issues a JWT for the HRISApplication mobile app's offline-first login,
+ * which authenticates devices locally (no password check against a real
+ * user store) and only needs a validly-signed token so the authMiddleware
+ * guards below stop rejecting its background sync calls. Unauthenticated by
+ * design — this mock backend has no real credential store to check against;
+ * swap this for real credential verification before this is anything but a
+ * testing/simulation backend (see render.yaml's service description).
+ */
+app.post('/mock-auth/login', (req, res) => {
+  const employeeId = req.body.employee_id;
+  if (!employeeId) return res.status(400).json({ error: 'employee_id required' });
+  const token = jwt.sign({ userId: employeeId }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ token });
+});
 
 app.use('/hris', authMiddleware);
 app.use('/miso', authMiddleware);
