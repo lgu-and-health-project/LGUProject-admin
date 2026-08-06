@@ -2,9 +2,9 @@ services:
   tenant-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mysecretpassword
-      POSTGRES_DB: lgu_tenant
+      POSTGRES_USER: postgres.zlulaaypjgdlkywdoxdp
+      POSTGRES_PASSWORD: Utarou.012204
+      POSTGRES_DB: postgres
     ports:
       - "5433:5432"
     volumes:
@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: apps/tenant-api/Dockerfile
     environment:
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@tenant-db:5432/lgu_tenant?schema=public
+      - DATABASE_URL=postgresql:postgresql://postgres.zlulaaypjgdlkywdoxdp:Utarou.012204@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
       - JWT_SECRET=supersecretjwtkey123
       - ADMIN_API_URL=https://lguproject-admin.onrender.com
       - INTERNAL_SERVICE_SECRET=4fad283893069592c4d6887fcf3754d9dfa2b34aabcfff9fe42360034ad4876b
