@@ -25,7 +25,7 @@ export class AnnouncementsService {
       where: { orgCode },
       orderBy: { createdAt: 'desc' },
       include: {
-        author: { select: { name: true, email: true, baseRole: true } },
+        author: { select: { name: true, employeeCode: true, roleId: true } },
       },
     });
   }

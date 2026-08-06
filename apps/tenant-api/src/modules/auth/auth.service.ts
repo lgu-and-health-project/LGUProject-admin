@@ -1,9 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
-import { ModulePermission } from './models/auth.model';
 
 @Injectable()
 export class AuthService {
@@ -13,71 +17,19 @@ export class AuthService {
     private adminApiService: AdminApiService,
   ) {}
 
-  /**
-   * Real permission resolution, replacing the old hardcoded
-   * `if (role === 'sysadmin') ... else []` switch. Reads RolePermission rows
-   * directly, so any role — not just sysadmin — gets working permissions,
-   * and adding a role is a data change, not a deploy.
-   */
-  async getPermissionsForRole(
-    roleId: string | null,
-  ): Promise<ModulePermission[]> {
-    if (!roleId) return [];
-
-    const rows = await this.prisma.rolePermission.findMany({
-      where: { roleId },
-    });
-
-    // Collapse division-scoped rows into their parent module for the nav-level
-    // permission check (module access = true if the role has ANY grant on it).
-    // Fine-grained division scoping is enforced separately at the resolver/
-    // service layer using divisionId, not in this coarse module list.
-    const byModule = new Map<string, ModulePermission>();
-    for (const row of rows) {
-      const existing = byModule.get(row.module);
-      if (!existing) {
-        byModule.set(row.module, {
-          module: row.module,
-          create: row.canCreate,
-          read: row.canRead,
-          update: row.canUpdate,
-          delete: row.canDelete,
-        });
-      } else {
-        existing.create ||= row.canCreate;
-        existing.read ||= row.canRead;
-        existing.update ||= row.canUpdate;
-        existing.delete ||= row.canDelete;
-      }
-    }
-    return Array.from(byModule.values());
-  }
-
-  private async buildAuthPayload(user: {
-    id: string;
-    email: string;
-    orgCode: string;
-    departmentId: string | null;
-    roleId: string | null;
-    role: { roleName: string } | null;
-    org?: { name: string; level: string } | null;
-  }) {
-    const permissions = await this.getPermissionsForRole(user.roleId);
-    let orgData = user.org;
-    if (!orgData) {
-      orgData = await this.prisma.organization.findUnique({
-        where: { code: user.orgCode },
-        select: { name: true, level: true },
-      });
-    }
-
+  private async buildAuthPayload(
+    user: {
+      id: string;
+      orgCode: string;
+      officeId: string | null;
+    },
+    sessionId: string,
+  ) {
     const payload = {
       sub: user.id,
-      email: user.email,
-      role: user.role?.roleName ?? null,
-      roleId: user.roleId,
       orgCode: user.orgCode,
-      departmentId: user.departmentId,
+      officeId: user.officeId,
+      sessionId,
     };
     const accessToken = await this.jwt.signAsync(payload);
 
@@ -85,58 +37,72 @@ export class AuthService {
       accessToken,
       user: {
         userId: user.id,
-        email: user.email,
-        role: user.role?.roleName ?? null,
-        roleId: user.roleId,
         orgCode: user.orgCode,
-        departmentId: user.departmentId,
-        permissions,
-        org: orgData,
+        officeId: user.officeId,
       },
     };
   }
 
   async login(
-    email: string,
+    orgCode: string,
+    employeeCode: string,
     password: string,
     ipAddress?: string,
     userAgent?: string,
+    relayLogId?: string,
   ) {
-    const cred = await this.prisma.staffUserCredentials.findUnique({
-      where: { email },
-      include: { staffUser: { include: { role: true, org: true } } },
+    const user = await this.prisma.staffUser.findUnique({
+      where: { orgCode_employeeCode: { orgCode, employeeCode } },
+      include: { credentials: true, org: true },
     });
 
-    const user = cred?.staffUser;
+    const cred = user?.credentials;
+    const actorEmail = user?.email || employeeCode;
 
-    // Strictly enforce that user exists, is active, has a valid password hash, and belongs to an active org.
-    if (
-      !cred ||
-      !user ||
-      user.status !== 'active' ||
-      !cred.passwordHash ||
-      cred.passwordHash.length < 10
-    ) {
+    if (!user || !cred) {
       await this.prisma.auditLog.create({
         data: {
-          actorEmail: email,
-          action: 'login_failed',
+          orgCode,
+          actorEmail,
+          action: 'login',
+          status: 'FAILURE',
           ipAddress,
           userAgent,
+          relayLogId,
         },
       });
-      throw new UnauthorizedException(
-        'Invalid credentials or account pending setup',
-      );
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.org && user.org.status !== 'active') {
+    if (user.status === 'pending_provisioning') {
       await this.prisma.auditLog.create({
         data: {
-          actorEmail: email,
-          action: 'login_failed_org_inactive',
+          orgCode,
+          actorEmail,
+          action: 'login',
+          status: 'FAILURE',
           ipAddress,
           userAgent,
+          relayLogId,
+        },
+      });
+      throw new ForbiddenException({
+        message:
+          'Account pending provisioning. Please set your initial password.',
+        code: 'PENDING_PROVISIONING',
+      });
+    }
+
+    if (user.status !== 'active' || user.org?.status !== 'active') {
+      await this.prisma.auditLog.create({
+        data: {
+          orgCode,
+          actorEmail,
+          action: 'login',
+          status: 'FAILURE',
+          ipAddress,
+          userAgent,
+          relayLogId,
         },
       });
       throw new UnauthorizedException(
@@ -144,14 +110,32 @@ export class AuthService {
       );
     }
 
+    if (!cred.passwordHash || cred.passwordHash.length < 10) {
+      await this.prisma.auditLog.create({
+        data: {
+          orgCode,
+          actorEmail,
+          action: 'login',
+          status: 'FAILURE',
+          ipAddress,
+          userAgent,
+          relayLogId,
+        },
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const valid = await bcrypt.compare(password, cred.passwordHash);
     if (!valid) {
       await this.prisma.auditLog.create({
         data: {
-          actorEmail: email,
-          action: 'login_failed',
+          orgCode,
+          actorEmail,
+          action: 'login',
+          status: 'FAILURE',
           ipAddress,
           userAgent,
+          relayLogId,
         },
       });
       throw new UnauthorizedException('Invalid credentials');
@@ -161,14 +145,107 @@ export class AuthService {
       data: {
         orgCode: user.orgCode,
         actorId: user.id,
-        actorEmail: user.email,
-        action: 'login_success',
+        actorEmail,
+        action: 'login',
+        status: 'SUCCESS',
         ipAddress,
         userAgent,
+        relayLogId,
       },
     });
 
-    return this.buildAuthPayload(user);
+    const rawRefreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
+    const session = await this.prisma.session.create({
+      data: {
+        staffUserId: user.id,
+        refreshTokenHash,
+        relayLogId,
+        ipAddress,
+        userAgent,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    const payload = await this.buildAuthPayload(user, session.id);
+    return { ...payload, refreshToken: rawRefreshToken };
+  }
+
+  async setInitialPassword(
+    orgCode: string,
+    employeeCode: string,
+    password: string,
+    ipAddress?: string,
+    userAgent?: string,
+    relayLogId?: string,
+  ) {
+    const user = await this.prisma.staffUser.findUnique({
+      where: { orgCode_employeeCode: { orgCode, employeeCode } },
+      include: { credentials: true },
+    });
+
+    if (!user || !user.credentials) {
+      await this.prisma.auditLog.create({
+        data: {
+          orgCode,
+          actorEmail: employeeCode,
+          action: 'set_initial_password',
+          status: 'FAILURE',
+          ipAddress,
+          userAgent,
+          relayLogId,
+        },
+      });
+      throw new UnauthorizedException('Account not found');
+    }
+
+    const actorEmail = user.email || employeeCode;
+
+    if (user.status !== 'pending_provisioning') {
+      await this.prisma.auditLog.create({
+        data: {
+          orgCode,
+          actorId: user.id,
+          actorEmail,
+          action: 'set_initial_password',
+          status: 'FAILURE',
+          ipAddress,
+          userAgent,
+          relayLogId,
+        },
+      });
+      throw new ForbiddenException('Account is not pending provisioning');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.staffUserCredentials.update({
+        where: { staffUserId: user.id },
+        data: { passwordHash },
+      });
+
+      await tx.staffUser.update({
+        where: { id: user.id },
+        data: { status: 'active' },
+      });
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        orgCode,
+        actorId: user.id,
+        actorEmail,
+        action: 'set_initial_password',
+        status: 'SUCCESS',
+        ipAddress,
+        userAgent,
+        relayLogId,
+      },
+    });
   }
 
   async getServerStatus() {
@@ -177,7 +254,8 @@ export class AuthService {
       return { status: 'NEEDS_PAIRING' };
     }
 
-    const adminResponse: any = await this.adminApiService.verifyRegistrationKey(registrationKey);
+    const adminResponse: any =
+      await this.adminApiService.verifyRegistrationKey(registrationKey);
 
     if (!adminResponse.valid) {
       if (adminResponse.reason === 'NOT_FOUND') {
@@ -190,17 +268,18 @@ export class AuthService {
     }
 
     const expectedEmail = adminResponse.expectedEmail;
-    
-    // Check if sysadmin is created
+
+    // In the new schema, we check for a MISO user via email. Since email is optional on StaffUser,
+    // this check might be brittle, but we assume the sysadmin created during onboard has it.
     const sysadminUser = await this.prisma.staffUser.findFirst({
-      where: { email: expectedEmail, baseRole: 'sysadmin' },
+      where: { email: expectedEmail },
     });
 
     if (!sysadminUser) {
-      return { 
-        status: 'NEEDS_ONBOARDING', 
+      return {
+        status: 'NEEDS_ONBOARDING',
         expectedEmail,
-        tenantName: adminResponse.tenant?.name 
+        tenantName: adminResponse.tenant?.name,
       };
     }
 
@@ -267,25 +346,22 @@ export class AuthService {
       throw new UnauthorizedException('Organization account is suspended');
     }
 
-    let dept = await this.prisma.department.findFirst({
+    let office = await this.prisma.office.findFirst({
       where: {
         orgCode: org.code,
         name: 'Management Information Systems Office',
       },
     });
-    if (!dept) {
-      dept = await this.prisma.department.create({
+    if (!office) {
+      office = await this.prisma.office.create({
         data: {
           orgCode: org.code,
           name: 'Management Information Systems Office',
-          category: 'custom',
+          category: 'MISO',
         },
       });
     }
 
-    // Every org needs its own sysadmin Role with real RolePermission rows —
-    // without this, onboarding outside the seed script would produce a
-    // sysadmin who logs in successfully but has zero permissions.
     let sysadminRole = await this.prisma.role.findFirst({
       where: { orgCode: org.code, roleName: 'sysadmin' },
     });
@@ -294,61 +370,32 @@ export class AuthService {
         data: {
           orgCode: org.code,
           roleName: 'sysadmin',
+          officeCategory: 'MISO',
           isSystemDefault: true,
         },
       });
-
-      const permissions = [
-        {
-          module: 'profile',
-          canCreate: false,
-          canRead: true,
-          canUpdate: false,
-          canDelete: false,
-        },
-        {
-          module: 'staff',
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-        {
-          module: 'roles',
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-      ];
-
-      await this.prisma.rolePermission.createMany({
-        data: permissions.map((p) => ({
-          roleId: sysadminRole!.id,
-          ...p,
-        })),
-      });
+      // We no longer seed permissions during onboard. Tabs and permissions are seeded centrally
+      // and managed via MISO's live configuration (OfficeTabAllocation, RoleTabPermission).
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const sysadminEmployeeCode = 'SYS-001';
 
     const user = await this.prisma.staffUser.create({
       data: {
         orgCode: org.code,
+        employeeCode: sysadminEmployeeCode,
         email,
-        baseRole: 'sysadmin',
         roleId: sysadminRole.id,
-        office: 'MISO',
+        officeId: office.id,
         positionTitle: 'System Administrator',
-        departmentId: dept.id,
+        status: 'active',
         credentials: {
           create: {
-            email,
             passwordHash,
           },
         },
       },
-      include: { role: true },
     });
 
     await this.adminApiService.completeSetup(activeKey);
@@ -357,13 +404,48 @@ export class AuthService {
       data: {
         orgCode: user.orgCode,
         actorId: user.id,
-        actorEmail: user.email,
+        actorEmail: user.email || user.employeeCode!,
         action: 'onboard_success',
+        status: 'SUCCESS',
         ipAddress,
         userAgent,
       },
     });
 
-    return this.buildAuthPayload(user);
+    const rawRefreshToken = crypto.randomBytes(32).toString('hex');
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
+    const session = await this.prisma.session.create({
+      data: {
+        staffUserId: user.id,
+        refreshTokenHash,
+        ipAddress,
+        userAgent,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    const payload = await this.buildAuthPayload(user, session.id);
+    return { ...payload, refreshToken: rawRefreshToken };
+  }
+
+  async refreshSession(refreshToken: string) {
+    const refreshTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
+    const session = await this.prisma.session.findUnique({
+      where: { refreshTokenHash },
+      include: { staffUser: true },
+    });
+
+    if (!session || session.revokedAt || new Date() > session.expiresAt) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Return a fresh access token containing the same session ID
+    return this.buildAuthPayload(session.staffUser, session.id);
   }
 }

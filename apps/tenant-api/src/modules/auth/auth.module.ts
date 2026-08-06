@@ -9,6 +9,7 @@ import { AdminApiModule } from '../admin-api/admin-api.module';
 
 @Module({
   imports: [
+    ConfigModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

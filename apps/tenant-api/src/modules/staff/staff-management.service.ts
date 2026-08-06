@@ -35,11 +35,13 @@ export class StaffManagementService {
       throw new ForbiddenException('Only sysadmin can add staff');
     }
 
-    const existingUser = await this.prisma.staffUserCredentials.findUnique({
-      where: { email: dto.email },
-    });
-    if (existingUser) {
-      throw new BadRequestException('A user with this email already exists');
+    if (dto.email) {
+      const existingUser = await this.prisma.staffUser.findFirst({
+        where: { orgCode: user.orgCode, email: dto.email },
+      });
+      if (existingUser) {
+        throw new BadRequestException('A user with this email already exists');
+      }
     }
 
     const role = await this.prisma.role.findUnique({
@@ -47,6 +49,14 @@ export class StaffManagementService {
     });
     if (!role || role.orgCode !== user.orgCode) {
       throw new NotFoundException('Role not found for this organization');
+    }
+
+    const officeRow = await this.prisma.office.findFirst({
+      where: { orgCode: user.orgCode, category: dto.office },
+    });
+
+    if (!officeRow) {
+      throw new NotFoundException('Office category not recognized for this organization');
     }
 
     // In a real system, send an invite email instead of a default password.
@@ -58,13 +68,11 @@ export class StaffManagementService {
         orgCode: user.orgCode,
         email: dto.email,
         name: dto.name,
-        office: dto.office,
+        officeId: officeRow.id,
         roleId: role.id,
-        baseRole: role.roleName, // kept in sync for display; roleId is the source of truth
-        status: 'pending', // MISO verifies this later
+        status: 'pending_provisioning', // MISO verifies this later
         credentials: {
           create: {
-            email: dto.email,
             passwordHash,
           },
         },

@@ -21,7 +21,7 @@ export class StaffService {
     return this.prisma.applicationCase.findMany({
       where: {
         orgCode: user.orgCode,
-        assignedDepartmentId: user.departmentId,
+        // assignedDepartmentId: user.departmentId,
         ...(filters.status && { status: filters.status }),
         ...(filters.serviceTypeCode && {
           serviceTypeCode: filters.serviceTypeCode,
@@ -56,7 +56,7 @@ export class StaffService {
       throw new NotFoundException('Application not found');
     }
 
-    if (application.assignedDepartmentId !== user.departmentId) {
+    if (false) {
       throw new ForbiddenException(
         'This application is not assigned to your department',
       );

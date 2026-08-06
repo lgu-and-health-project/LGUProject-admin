@@ -25,18 +25,43 @@ export class AuthRouter {
       login: this.trpc.publicProcedure
         .input(
           z.object({
-            email: z.string().email(),
+            orgCode: z.string(),
+            employeeCode: z.string(),
             password: z.string(),
+            relayLogId: z.string().optional(),
           }),
         )
         .mutation(async ({ input, ctx }) => {
           const res = await this.authService.login(
-            input.email,
+            input.orgCode,
+            input.employeeCode,
             input.password,
             ctx.reqIp,
             ctx.userAgent,
+            input.relayLogId,
           );
-          return { user: res.user, access_token: res.accessToken };
+          return { user: res.user, access_token: res.accessToken, refresh_token: res.refreshToken };
+        }),
+
+      setInitialPassword: this.trpc.publicProcedure
+        .input(
+          z.object({
+            orgCode: z.string(),
+            employeeCode: z.string(),
+            password: z.string(),
+            relayLogId: z.string().optional(),
+          }),
+        )
+        .mutation(async ({ input, ctx }) => {
+          await this.authService.setInitialPassword(
+            input.orgCode,
+            input.employeeCode,
+            input.password,
+            ctx.reqIp,
+            ctx.userAgent,
+            input.relayLogId,
+          );
+          return { success: true };
         }),
 
       onboard: this.trpc.publicProcedure
@@ -55,6 +80,17 @@ export class AuthRouter {
             ctx.reqIp,
             ctx.userAgent,
           );
+          return { user: res.user, access_token: res.accessToken, refresh_token: res.refreshToken };
+        }),
+
+      refresh: this.trpc.publicProcedure
+        .input(
+          z.object({
+            refreshToken: z.string(),
+          }),
+        )
+        .mutation(async ({ input }) => {
+          const res = await this.authService.refreshSession(input.refreshToken);
           return { user: res.user, access_token: res.accessToken };
         }),
 

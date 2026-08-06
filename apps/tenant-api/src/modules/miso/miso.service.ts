@@ -53,8 +53,7 @@ export class MisoService {
     return this.prisma.staffUser.update({
       where: { id: staffId },
       data: {
-        roleId: role.id,
-        baseRole: role.roleName, // Kept in sync with role
+        roleId: role.id, // Kept in sync with role
       },
     });
   }
