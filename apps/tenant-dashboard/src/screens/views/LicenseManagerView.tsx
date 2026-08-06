@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Key, AlertTriangle } from 'lucide-react';
+import { Shield, Key } from 'lucide-react';
 
 export default function LicenseManagerView() {
   const [key, setKey] = useState('');

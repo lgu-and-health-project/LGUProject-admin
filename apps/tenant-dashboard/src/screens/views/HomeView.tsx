@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle, Server, Activity, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Server, ShieldCheck } from 'lucide-react';
 
 export default function HomeView({ user }: { user: any }) {
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
-
   return (
     <div>
       <div className="flex-between mb-4">

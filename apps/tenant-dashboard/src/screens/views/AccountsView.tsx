@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, ShieldAlert } from 'lucide-react';
+import { Users, UserPlus } from 'lucide-react';
 import { misoApi } from '../../services/api';
 
 export default function AccountsView() {
   const [staff, setStaff] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
