@@ -77,16 +77,14 @@ async function bootstrap() {
     }),
   );
 
-  if (process.env.NODE_ENV !== 'production') {
-    const config = new DocumentBuilder()
-      .setTitle('LGU Platform Admin API')
-      .setDescription('Central API for Superadmins, Tenants, and Citizens')
-      .setVersion('1.0')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
-  }
+  const config = new DocumentBuilder()
+    .setTitle('LGU Platform Admin API')
+    .setDescription('Central API for Superadmins, Tenants, and Citizens')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   const prisma = app.get(PrismaService);
   if (process.env.INITIAL_SUPERADMIN_EMAIL && process.env.INITIAL_SUPERADMIN_PASSWORD) {
