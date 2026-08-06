@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { TrpcService } from '../trpc.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { HrisService } from '../../modules/hris/hris.service';
 
 function getDistanceInMeters(
   lat1: number,
@@ -27,6 +28,7 @@ export class AttendanceRouter {
   constructor(
     private trpc: TrpcService,
     private prisma: PrismaService,
+    private hrisService: HrisService,
   ) {}
 
   get router() {
@@ -60,14 +62,11 @@ export class AttendanceRouter {
             );
           }
 
-          const log = await this.prisma.attendanceLog.create({
-            data: {
-              staffUserId: ctx.user.userId,
-              status: 'online',
-              latitude: input.latitude,
-              longitude: input.longitude,
-            },
-          });
+          const log = await this.hrisService.logAttendance(
+            ctx.user.orgCode,
+            ctx.user.userId,
+            { type: 'IN', latitude: input.latitude, longitude: input.longitude },
+          );
 
           return { success: true, distance: Math.round(distance), log };
         }),

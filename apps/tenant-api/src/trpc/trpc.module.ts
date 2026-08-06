@@ -6,9 +6,10 @@ import { AttendanceRouter } from './routers/attendance.router';
 import { SettingsRouter } from './routers/settings.router';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../modules/auth/auth.module';
+import { HrisModule } from '../modules/hris/hris.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, HrisModule],
   providers: [
     PrismaService,
     TrpcService,
