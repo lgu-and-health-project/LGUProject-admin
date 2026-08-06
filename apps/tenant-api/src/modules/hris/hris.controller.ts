@@ -49,8 +49,7 @@ export class HrisController {
   @Post('leave-requests')
   createLeaveRequest(
     @Req() req: RequestWithUser,
-    @Body()
-    dto: { type: string; startDate: string; endDate: string; reason: string },
+    @Body() dto: import('./dto/create-leave-request.dto').CreateLeaveRequestDto,
   ) {
     return this.hrisService.createLeaveRequest(
       req.user.orgCode,

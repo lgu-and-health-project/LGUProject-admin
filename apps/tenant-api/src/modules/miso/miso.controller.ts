@@ -47,7 +47,7 @@ export class MisoController {
   updateStaffRole(
     @Req() req: RequestWithUser,
     @Param('id') staffId: string,
-    @Body() dto: { roleId: string },
+    @Body() dto: import('./dto/update-staff-role.dto').UpdateStaffRoleDto,
   ) {
     return this.misoService.updateStaffRole(
       req.user.orgCode,
