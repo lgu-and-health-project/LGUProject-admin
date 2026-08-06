@@ -12,6 +12,7 @@ import { TrpcModule } from './trpc/trpc.module';
 import { UsersModule } from './users/users.module';
 import { DevicesModule } from './devices/devices.module';
 import { PsgcModule } from './psgc/psgc.module';
+import { RelayModule } from './relay/relay.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PsgcModule } from './psgc/psgc.module';
     UsersModule,
     DevicesModule,
     PsgcModule,
+    RelayModule,
   ],
   providers: [
     AppService,
