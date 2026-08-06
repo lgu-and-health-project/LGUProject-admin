@@ -397,7 +397,7 @@ export class PsgcService {
     await this.fetchLevelPaginated(endpoint, undefined, async (records) => {
       allRecords.push(...records);
     });
-    const record = allRecords.find((r) => r.psgc_code === code);
+    const record = allRecords.find((r) => r.psgc_code === code || (r as any).code === code);
 
     if (!record) {
       throw new BadRequestException(`'${code}' is not a recognized PSGC code.`);
@@ -423,16 +423,24 @@ export class PsgcService {
     const fixedAreaName = this.fixEncoding(record.area_name);
     const normalizedLevel = this.normalizeLevel(record.geographic_level);
     const normalizedCityClass = this.normalizeCityClass(record.city_class) ?? undefined;
+    
+    // PSA API sometimes returns "code" instead of "psgc_code"
+    const actualCode = record.psgc_code || (record as any).code;
+    
+    if (!actualCode) {
+      this.logger.error(`Skipping record with no code: ${JSON.stringify(record)}`);
+      throw new BadRequestException('PSA record is missing psgc_code or code');
+    }
 
     return this.prisma.psgcLocations.upsert({
-      where: { code: record.psgc_code },
+      where: { code: actualCode },
       update: {
         areaName: fixedAreaName,
         level: normalizedLevel,
         cityClassification: normalizedCityClass,
       },
       create: {
-        code: record.psgc_code,
+        code: actualCode,
         psgcVersion: record.version || getEnv('PSGC_VERSION', 'Q2_2024'),
         areaName: fixedAreaName,
         level: normalizedLevel,
