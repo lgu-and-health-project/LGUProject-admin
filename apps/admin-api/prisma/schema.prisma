@@ -7,6 +7,21 @@ generator client {
   moduleFormat = "cjs"
 }
 
+// =========================================================================
+// SCOPE OF THIS DATABASE
+// This is the CENTRAL server. It owns: platform admin accounts, tenant
+// registration/licensing, device pairing + heartbeat, PSGC reference data,
+// and citizen-portal accounts (Users/UserProfiles — a separate product
+// surface from municipal staff).
+//
+// It must NEVER store staff employee codes, staff passwords, or any
+// municipal personnel/HR data — that lives exclusively in each tenant's
+// own on-prem database, which is the whole point of shipping a local
+// server per municipality (data sovereignty + offline capability). This
+// database only ever sees a tenant's login traffic as opaque relayed
+// bytes, never as fields it can query.
+// =========================================================================
+
 enum AdminRole {
   ROOT_SUPERADMIN
   ADMIN
@@ -102,6 +117,17 @@ enum DeviceStatus {
   DECOMMISSIONED
 }
 
+// Outcome of a relayed login attempt, logged WITHOUT the credential
+// payload itself — central only ever sees whether the tunnel accepted
+// or rejected the relay, never the employee code or password.
+enum RelayOutcome {
+  ROUTED // tunnel found, bytes forwarded and acknowledgment received — does not mean login succeeded tenant-side, only that the round trip completed
+  TENANT_TIMEOUT // tunnel found, bytes forwarded, but no acknowledgment arrived within the timeout window
+  TENANT_UNREACHABLE // agentReachable was false, nothing was sent
+  TENANT_NOT_FOUND // psgc/tenant selection didn't resolve
+  RATE_LIMITED // too many relay attempts for this tenant/IP in the window
+}
+
 // ====================================
 // For Administrators/Registrations
 // ====================================
@@ -161,6 +187,9 @@ model PsgcLocations {
 
   tenant    LguTenants[]
   addresses Addresses[]
+
+  // Powers the mobile app's municipality picker (typeahead by name/level).
+  @@index([level, areaName])
 }
 
 enum SyncStatus {
@@ -185,6 +214,9 @@ model LguTenants {
   tenantId           String        @id @default(uuid()) @map("tenant_id") @db.Uuid
   psgcLocationId     String        @unique @map("psgc_location_id") @db.Uuid
   psgcLocation       PsgcLocations @relation(fields: [psgcLocationId], references: [psgcLocationId])
+  // Last-known local network address, kept for on-site troubleshooting only.
+  // The relay never dials this directly — it always routes through the
+  // device's own outbound tunnel connection (see Devices.agentReachable).
   apiUrl             String?       @map("api_url")
   status             TenantStatus  @default(pending_setup)
   deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz
@@ -193,8 +225,13 @@ model LguTenants {
   createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  licenses Licenses[]
-  devices  Devices[]
+  licenses    Licenses[]
+  devices     Devices[]
+  relayLogs   RelayConnectionLogs[]
+
+  // Municipality picker only lists active tenants — this index keeps that
+  // filter cheap regardless of how many LGUs are onboarded.
+  @@index([status])
 }
 
 model Licenses {
@@ -219,7 +256,10 @@ model Devices {
   status           DeviceStatus @default(PROVISIONED)
   agentVersion     String?      @map("agent_version")
   appVersion       String?      @map("app_version")
+  // Is the agent's outbound tunnel currently connected to this relay fleet.
   agentReachable   Boolean      @default(false) @map("agent_reachable")
+  // Did the last health probe over that tunnel get a healthy reply from
+  // the tenant's local backend (distinct from the tunnel itself being up).
   backendHealthy   Boolean      @default(false) @map("backend_healthy")
   lastHeartbeatAt  DateTime?    @map("last_heartbeat_at") @db.Timestamptz
   assignedAt       DateTime?    @map("assigned_at") @db.Timestamptz
@@ -232,7 +272,14 @@ model Devices {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  licenses Licenses[]
+  licenses  Licenses[]
+  relayLogs RelayConnectionLogs[]
+
+  // The relay's hot-path lookup: "give me a reachable, active device for
+  // this tenant." Live socket routing itself still belongs in Redis/memory,
+  // not here — this index only speeds up the reachability check before
+  // that lookup happens.
+  @@index([tenantId, status, agentReachable])
 }
 
 model SuperAdminAuditLogs {
@@ -255,6 +302,28 @@ model SuperAdminAuditLogs {
   @@index([action, status])
 }
 
+// Connection-level log for the mobile-login relay. Deliberately separate
+// from SuperAdminAuditLogs: this table is written on every staff relay
+// attempt across every municipality (high volume, short retention), never
+// carries an actor (staff accounts don't exist in this database), and
+// must never carry a credential payload — outcome only.
+model RelayConnectionLogs {
+  relayLogId String       @id @default(uuid()) @map("relay_log_id") @db.Uuid
+  tenantId   String?      @map("tenant_id") @db.Uuid
+  tenant     LguTenants?  @relation(fields: [tenantId], references: [tenantId])
+  deviceId   String?      @map("device_id") @db.Uuid
+  device     Devices?     @relation(fields: [deviceId], references: [deviceId])
+  outcome    RelayOutcome
+  ipAddress  String?      @map("ip_address")
+  userAgent  String?      @map("user_agent")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  // Supports both "how's this tenant's relay traffic looking" and
+  // "is this IP hammering the relay across tenants" queries.
+  @@index([tenantId, createdAt])
+  @@index([ipAddress, createdAt])
+}
+
 model RefreshTokens {
   refreshTokenId String      @id @default(uuid()) @map("refresh_token_id") @db.Uuid
   tokenHash      String      @unique @map("token_hash")
@@ -270,7 +339,8 @@ model RefreshTokens {
 }
 
 // ====================================
-// For Users
+// For Users (citizen portal — unrelated to municipal staff accounts,
+// which live only in each tenant's own database)
 // ====================================
 model Users {
   userId    String     @id @default(uuid()) @map("user_id") @db.Uuid
