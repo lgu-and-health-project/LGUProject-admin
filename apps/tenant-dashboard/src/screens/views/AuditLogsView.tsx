@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Search, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { misoApi } from '../../services/api';
 
 export default function AuditLogsView() {

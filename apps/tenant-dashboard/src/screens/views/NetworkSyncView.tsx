@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Cloud, Wifi, RefreshCw, AlertTriangle, CloudOff } from 'lucide-react';
+import { Cloud, Wifi, RefreshCw } from 'lucide-react';
 import { misoApi } from '../../services/api';
 
 export default function NetworkSyncView() {
-  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [setSyncStatus] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
