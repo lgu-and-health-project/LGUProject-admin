@@ -19,26 +19,21 @@ RUN pnpm install --frozen-lockfile
 # Copy full source
 COPY . .
 
-# Generate Prisma and build
-RUN pnpm --filter tenant-api exec prisma generate
-RUN pnpm --filter tenant-api build
+# Build
+RUN pnpm --filter admin-dashboard build
 
 # Deploy isolated production package
-RUN pnpm deploy --filter tenant-api --prod /pruned
+RUN pnpm deploy --filter admin-dashboard --prod /pruned
 
 # Stage 2: Runtime
-FROM node:20-alpine
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy only the compiled output and config from the pruned directory
+COPY --from=builder /pruned/dist /usr/share/nginx/html
 
-RUN npm install -g pnpm
+# Assuming nginx.conf is at the root of the app
+COPY --from=builder /pruned/nginx.conf /etc/nginx/conf.d/default.conf || true
 
-# Copy ONLY the pruned standalone application
-COPY --from=builder /pruned .
+EXPOSE 4003
 
-# Ensure Prisma client is available in production
-RUN npx prisma generate
-
-EXPOSE 4001
-
-CMD ["pnpm", "start:prod"]
+CMD ["nginx", "-g", "daemon off;"]

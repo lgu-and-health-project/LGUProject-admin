@@ -1,28 +1,38 @@
-# Build stage
+# Stage 1: Build
 FROM node:20-alpine AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
 RUN npm install -g pnpm
 
+# Copy workspace config
 COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy all package.jsons for accurate dependency resolution
+COPY apps/tenant-api/package.json ./apps/tenant-api/
+COPY apps/admin-api/package.json ./apps/admin-api/
+COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
 COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
 
-RUN pnpm install --filter tenant-dashboard...
+RUN pnpm install --frozen-lockfile
 
-COPY apps/tenant-dashboard ./apps/tenant-dashboard
+# Copy full source
+COPY . .
 
-WORKDIR /app/apps/tenant-dashboard
+# Build
+RUN pnpm --filter tenant-dashboard build
 
-RUN pnpm build
+# Deploy isolated production package
+RUN pnpm deploy --filter tenant-dashboard --prod /pruned
 
-
-# Production stage
+# Stage 2: Runtime
 FROM nginx:alpine
 
-COPY --from=builder /app/apps/tenant-dashboard/dist /usr/share/nginx/html
+# Copy only the compiled output and config from the pruned directory
+COPY --from=builder /pruned/dist /usr/share/nginx/html
 
-COPY apps/tenant-dashboard/nginx.conf /etc/nginx/conf.d/default.conf
+# Assuming nginx.conf is at the root of the app
+COPY --from=builder /pruned/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 4002
 

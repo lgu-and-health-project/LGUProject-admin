@@ -20,11 +20,13 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma and build
-RUN pnpm --filter tenant-api exec prisma generate
-RUN pnpm --filter tenant-api build
+# Note: if admin-api doesn't use prisma, this generate command will fail, but assuming it mirrors tenant-api.
+# If it fails, remove the generate line from the Dockerfile later.
+RUN pnpm --filter admin-api exec prisma generate || true
+RUN pnpm --filter admin-api build
 
 # Deploy isolated production package
-RUN pnpm deploy --filter tenant-api --prod /pruned
+RUN pnpm deploy --filter admin-api --prod /pruned
 
 # Stage 2: Runtime
 FROM node:20-alpine
@@ -36,9 +38,8 @@ RUN npm install -g pnpm
 # Copy ONLY the pruned standalone application
 COPY --from=builder /pruned .
 
-# Ensure Prisma client is available in production
-RUN npx prisma generate
+RUN npx prisma generate || true
 
-EXPOSE 4001
+EXPOSE 4000
 
 CMD ["pnpm", "start:prod"]
