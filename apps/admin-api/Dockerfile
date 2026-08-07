@@ -40,7 +40,8 @@ RUN npm install -g pnpm
 # Copy ONLY the pruned standalone application
 COPY --from=builder /pruned .
 
-RUN npx prisma generate || true
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
 
 EXPOSE 4000
 
