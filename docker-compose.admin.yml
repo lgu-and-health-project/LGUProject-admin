@@ -1,0 +1,50 @@
+services:
+  admin-db:
+    image: postgres:15-alpine
+    env_file:
+      - .env.admin
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-lgu_admin_dev}
+    ports:
+      - "5434:5432"
+    volumes:
+      - admin_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lgu_admin_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  admin-api:
+    build:
+      context: .
+      dockerfile: apps/admin-api/Dockerfile
+    env_file:
+      - .env.admin
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - HEADSCALE_ADMIN_API_KEY=${HEADSCALE_ADMIN_API_KEY}
+      - PORT=${PORT:-4000}
+    ports:
+      - "${PORT:-4000}:${PORT:-4000}"
+    depends_on:
+      admin-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  admin-dashboard:
+    build:
+      context: .
+      dockerfile: apps/admin-dashboard/Dockerfile
+    ports:
+      - "4003:4003"
+    depends_on:
+      - admin-api
+    restart: unless-stopped
+
+volumes:
+  admin_pgdata:
