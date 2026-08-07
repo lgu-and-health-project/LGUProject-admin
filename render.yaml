@@ -53,31 +53,3 @@ services:
           name: tenant-db
           property: connectionString
 
-  # Temporary Cloud-Hosted Tenant API for Testing/Simulation
-  - type: web
-    name: tenant-api
-    env: node
-    rootDir: apps/tenant-api
-    buildCommand: pnpm install && pnpm prisma generate && pnpm prisma db push --force-reset && pnpm build
-    startCommand: pnpm start:prod
-    envVars:
-      - key: NODE_VERSION
-        value: 20.x
-      - key: DATABASE_URL
-        fromDatabase:
-          name: tenant-db
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
-      - key: ADMIN_API_URL
-        fromService:
-          type: web
-          name: admin-api
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: DEVICE_REGISTRATION_KEY
-        sync: false # Set manually if simulating a pre-registered machine
-
-databases:
-  # Temporary Cloud Database for Tenant API Simulation
-  - name: tenant-db
-    plan: free # Change if needed

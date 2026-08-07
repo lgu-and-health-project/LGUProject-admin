@@ -1,48 +1,51 @@
-# Stage 1: Build
 FROM node:20-alpine AS builder
 
-WORKDIR /workspace
+WORKDIR /app
+
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
-# Copy workspace config
 COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-
-# Copy all package.jsons for accurate dependency resolution
 COPY apps/tenant-api/package.json ./apps/tenant-api/
+COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
 COPY apps/admin-api/package.json ./apps/admin-api/
 COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
-COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
+COPY apps/mock-backend/package.json ./apps/mock-backend/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
-# Copy full source
 COPY . .
 
-# Generate Prisma and build
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN pnpm --filter tenant-api exec prisma generate
+RUN cd apps/tenant-api && pnpm exec prisma generate
 RUN pnpm --filter tenant-api build
 
-# Deploy isolated production package
-RUN pnpm deploy --legacy --filter tenant-api --prod /pruned
-RUN cp -r apps/tenant-api/dist /pruned/dist
-
-WORKDIR /pruned
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN pnpm add -D prisma dotenv && \
-    pnpm exec prisma generate && \
-    pnpm remove prisma dotenv
-
-# Stage 2: Runtime
 FROM node:20-alpine
 
 WORKDIR /app
 
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+ENV DATABASE_URL=$DATABASE_URL
+
 RUN npm install -g pnpm
 
-# Copy ONLY the pruned standalone application
-COPY --from=builder /pruned .
+COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/tenant-api/package.json ./apps/tenant-api/
+COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
+COPY apps/admin-api/package.json ./apps/admin-api/
+COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
+COPY apps/mock-backend/package.json ./apps/mock-backend/
+
+RUN pnpm install --prod
+
+COPY --from=builder /app/apps/tenant-api/dist ./apps/tenant-api/dist
+COPY --from=builder /app/apps/tenant-api/prisma ./apps/tenant-api/prisma
+COPY --from=builder /app/apps/tenant-api/prisma.config.ts ./apps/tenant-api/prisma.config.ts
+
+WORKDIR /app/apps/tenant-api
+
+RUN pnpm exec prisma generate
 
 EXPOSE 4001
 
