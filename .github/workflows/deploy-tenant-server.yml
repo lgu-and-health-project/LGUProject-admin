@@ -57,9 +57,9 @@ jobs:
           file: apps/tenant-api/Dockerfile
           push: true
           tags: |
-            ${{ vars.REGISTRY_HOST }}/tenant-api:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.stable == 'true' && format('{0}/tenant-api:stable', vars.REGISTRY_HOST) || '' }}
-            ${{ steps.tag.outputs.stable == 'false' && format('{0}/tenant-api:develop', vars.REGISTRY_HOST) || '' }}
+            ghcr.io/${{ github.repository_owner }}/tenant-api:${{ steps.tag.outputs.tag }}
+            ${{ steps.tag.outputs.stable == 'true' && format('ghcr.io/{0}/tenant-api:stable', github.repository_owner) || '' }}
+            ${{ steps.tag.outputs.stable == 'false' && format('ghcr.io/{0}/tenant-api:develop', github.repository_owner) || '' }}
 
       - name: Build and push tenant-dashboard
         uses: docker/build-push-action@v6
@@ -68,9 +68,9 @@ jobs:
           file: apps/tenant-dashboard/Dockerfile
           push: true
           tags: |
-            ${{ vars.REGISTRY_HOST }}/tenant-dashboard:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.stable == 'true' && format('{0}/tenant-dashboard:stable', vars.REGISTRY_HOST) || '' }}
-            ${{ steps.tag.outputs.stable == 'false' && format('{0}/tenant-dashboard:develop', vars.REGISTRY_HOST) || '' }}
+            ghcr.io/${{ github.repository_owner }}/tenant-dashboard:${{ steps.tag.outputs.tag }}
+            ${{ steps.tag.outputs.stable == 'true' && format('ghcr.io/{0}/tenant-dashboard:stable', github.repository_owner) || '' }}
+            ${{ steps.tag.outputs.stable == 'false' && format('ghcr.io/{0}/tenant-dashboard:develop', github.repository_owner) || '' }}
 
       - name: Trigger live deploy
         run: curl -X POST "${{ secrets.DEPLOY_HOOK_URL }}"

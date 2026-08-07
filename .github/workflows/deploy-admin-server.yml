@@ -50,9 +50,9 @@ jobs:
           file: apps/admin-api/Dockerfile
           push: true
           tags: |
-            ${{ vars.REGISTRY_HOST }}/admin-api:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.stable == 'true' && format('{0}/admin-api:stable', vars.REGISTRY_HOST) || '' }}
-            ${{ steps.tag.outputs.stable == 'false' && format('{0}/admin-api:develop', vars.REGISTRY_HOST) || '' }}
+            ghcr.io/${{ github.repository_owner }}/admin-api:${{ steps.tag.outputs.tag }}
+            ${{ steps.tag.outputs.stable == 'true' && format('ghcr.io/{0}/admin-api:stable', github.repository_owner) || '' }}
+            ${{ steps.tag.outputs.stable == 'false' && format('ghcr.io/{0}/admin-api:develop', github.repository_owner) || '' }}
 
       - name: Build and push admin-dashboard
         uses: docker/build-push-action@v6
@@ -61,9 +61,9 @@ jobs:
           file: apps/admin-dashboard/Dockerfile
           push: true
           tags: |
-            ${{ vars.REGISTRY_HOST }}/admin-dashboard:${{ steps.tag.outputs.tag }}
-            ${{ steps.tag.outputs.stable == 'true' && format('{0}/admin-dashboard:stable', vars.REGISTRY_HOST) || '' }}
-            ${{ steps.tag.outputs.stable == 'false' && format('{0}/admin-dashboard:develop', vars.REGISTRY_HOST) || '' }}
+            ghcr.io/${{ github.repository_owner }}/admin-dashboard:${{ steps.tag.outputs.tag }}
+            ${{ steps.tag.outputs.stable == 'true' && format('ghcr.io/{0}/admin-dashboard:stable', github.repository_owner) || '' }}
+            ${{ steps.tag.outputs.stable == 'false' && format('ghcr.io/{0}/admin-dashboard:develop', github.repository_owner) || '' }}
 
       # admin-api is cloud-hosted continuously, unlike tenant-server —
       # worth an explicit deploy step here once you pick a host (Render,
