@@ -22,17 +22,20 @@ COPY . .
 # Build
 RUN pnpm --filter admin-dashboard build
 
-# Dashboards are static, so we don't need pnpm deploy
+# Deploy isolated production package
+RUN pnpm deploy --legacy --filter admin-dashboard --prod /pruned
+RUN cp -r apps/admin-dashboard/.next /pruned/.next
 
 # Stage 2: Runtime
-FROM nginx:alpine
+FROM node:20-alpine
 
-# Copy only the compiled output and config from the workspace
-COPY --from=builder /workspace/apps/admin-dashboard/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Assuming nginx.conf is at the root of the app
-COPY --from=builder /workspace/apps/admin-dashboard/nginx.conf /etc/nginx/conf.d/default.conf || true
+RUN npm install -g pnpm
+
+# Copy ONLY the pruned standalone application
+COPY --from=builder /pruned .
 
 EXPOSE 4003
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["pnpm", "start"]
