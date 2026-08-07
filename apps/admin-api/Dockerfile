@@ -27,7 +27,7 @@ RUN pnpm --filter admin-api exec prisma generate
 RUN pnpm --filter admin-api build
 
 # Deploy isolated production package
-RUN pnpm deploy --filter admin-api --prod /pruned
+RUN pnpm deploy --legacy --filter admin-api --prod /pruned
 
 # Stage 2: Runtime
 FROM node:20-alpine

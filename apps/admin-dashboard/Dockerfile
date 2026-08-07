@@ -23,7 +23,7 @@ COPY . .
 RUN pnpm --filter admin-dashboard build
 
 # Deploy isolated production package
-RUN pnpm deploy --filter admin-dashboard --prod /pruned
+RUN pnpm deploy --legacy --filter admin-dashboard --prod /pruned
 
 # Stage 2: Runtime
 FROM nginx:alpine
