@@ -22,17 +22,16 @@ COPY . .
 # Build
 RUN pnpm --filter tenant-dashboard build
 
-# Deploy isolated production package
-RUN pnpm deploy --legacy --filter tenant-dashboard --prod /pruned
+# Dashboards are static, so we don't need pnpm deploy
 
 # Stage 2: Runtime
 FROM nginx:alpine
 
-# Copy only the compiled output and config from the pruned directory
-COPY --from=builder /pruned/dist /usr/share/nginx/html
+# Copy only the compiled output and config from the workspace
+COPY --from=builder /workspace/apps/tenant-dashboard/dist /usr/share/nginx/html
 
 # Assuming nginx.conf is at the root of the app
-COPY --from=builder /pruned/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /workspace/apps/tenant-dashboard/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 4002
 

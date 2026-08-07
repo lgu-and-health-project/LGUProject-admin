@@ -28,6 +28,7 @@ RUN pnpm --filter admin-api build
 
 # Deploy isolated production package
 RUN pnpm deploy --legacy --filter admin-api --prod /pruned
+RUN cp -r apps/admin-api/dist /pruned/dist
 
 # Stage 2: Runtime
 FROM node:20-alpine

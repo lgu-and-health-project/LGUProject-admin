@@ -26,6 +26,7 @@ RUN pnpm --filter tenant-api build
 
 # Deploy isolated production package
 RUN pnpm deploy --legacy --filter tenant-api --prod /pruned
+RUN cp -r apps/tenant-api/dist /pruned/dist
 
 # Stage 2: Runtime
 FROM node:20-alpine
