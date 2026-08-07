@@ -27,7 +27,12 @@ RUN pnpm --filter tenant-api build
 # Deploy isolated production package
 RUN pnpm deploy --legacy --filter tenant-api --prod /pruned
 RUN cp -r apps/tenant-api/dist /pruned/dist
-RUN cp -r node_modules/.prisma /pruned/node_modules/.prisma || true
+
+# Generate the client natively inside the pruned workspace
+WORKDIR /pruned
+RUN sed -i "s/import 'dotenv\/config';//g" prisma.config.ts
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
 
 # Stage 2: Runtime
 FROM node:20-alpine
