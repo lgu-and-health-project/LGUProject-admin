@@ -1,6 +1,7 @@
 name: Deploy tenant-server
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
     paths:
@@ -9,6 +10,7 @@ on:
       - "packages/**" # shared workspace packages, if any
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - ".github/workflows/deploy-tenant-server.yml"
     tags:
       - "tenant-v*.*.*"
 

@@ -1,6 +1,7 @@
 name: Deploy admin-server
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
     paths:
@@ -9,6 +10,7 @@ on:
       - "packages/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - ".github/workflows/deploy-admin-server.yml"
     tags:
       - "admin-v*.*.*"
 
