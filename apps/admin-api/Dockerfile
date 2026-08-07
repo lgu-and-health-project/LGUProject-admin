@@ -30,10 +30,11 @@ RUN pnpm --filter admin-api build
 RUN pnpm deploy --legacy --filter admin-api --prod /pruned
 RUN cp -r apps/admin-api/dist /pruned/dist
 
-# Copy the pre-generated Prisma client from the workspace into the pruned node_modules
-RUN PRISMA_SRC=$(find /workspace/node_modules/.pnpm -type d -path "*/@prisma+client*/node_modules/@prisma/client" | head -n 1) && \
-    PRISMA_DEST=$(find /pruned/node_modules/.pnpm -type d -path "*/@prisma+client*/node_modules/@prisma/client" | head -n 1) && \
-    cp -a $PRISMA_SRC/* $PRISMA_DEST/
+WORKDIR /pruned
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN pnpm add -D prisma dotenv && \
+    pnpm exec prisma generate && \
+    pnpm remove prisma dotenv
 
 # Stage 2: Runtime
 FROM node:20-alpine
