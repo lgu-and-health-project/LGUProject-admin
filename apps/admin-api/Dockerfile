@@ -22,7 +22,8 @@ COPY . .
 # Generate Prisma and build
 # Note: if admin-api doesn't use prisma, this generate command will fail, but assuming it mirrors tenant-api.
 # If it fails, remove the generate line from the Dockerfile later.
-RUN pnpm --filter admin-api exec prisma generate || true
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN pnpm --filter admin-api exec prisma generate
 RUN pnpm --filter admin-api build
 
 # Deploy isolated production package
