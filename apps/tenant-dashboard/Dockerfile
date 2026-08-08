@@ -5,12 +5,9 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
+COPY . .
 
-RUN pnpm install --filter tenant-dashboard...
-
-COPY apps/tenant-dashboard ./apps/tenant-dashboard
+RUN pnpm install
 
 WORKDIR /app/apps/tenant-dashboard
 

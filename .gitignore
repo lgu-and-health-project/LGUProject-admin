@@ -26,4 +26,9 @@ HRISApplication/
 skills-lock.json
 
 /scripts
-/scripts/*
+/scripts/*pruned/
+*.env
+
+pruned/
+*.env
+/Development Files/

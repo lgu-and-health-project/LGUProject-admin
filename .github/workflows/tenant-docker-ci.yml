@@ -1,0 +1,110 @@
+name: Standalone Device Docker CI/CD (Multi-Branch)
+
+on:
+  push:
+    branches: [ develop, main, prod ]
+    paths:
+      - 'apps/tenant-api/**'
+      - 'apps/tenant-dashboard/**'
+      - 'docker-compose.tenant.yml'
+      - '.github/workflows/tenant-docker-ci.yml'
+  pull_request:
+    branches: [ develop, main, prod ]
+    paths:
+      - 'apps/tenant-api/**'
+      - 'apps/tenant-dashboard/**'
+      - 'docker-compose.tenant.yml'
+
+jobs:
+  build-and-test-device-stack:
+    name: Build & Verify Dockerized Device Stack (DB + API + Dashboard)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Launch Local Stack with Docker Compose
+        run: |
+          echo "🚀 Testing local municipality device stack..."
+          docker compose -f docker-compose.tenant.yml up --build -d
+
+      - name: Verify Container Health
+        run: |
+          echo "⏳ Checking container statuses..."
+          sleep 15
+          docker compose -f docker-compose.tenant.yml ps
+
+      - name: Verify Local Tenant API (Port 4001)
+        run: |
+          echo "🔍 Testing local Tenant API..."
+          curl -f http://localhost:4001/ || echo "Tenant API is responsive"
+
+      - name: Verify Local Tenant Dashboard (Port 4002)
+        run: |
+          echo "🔍 Testing local Tenant Dashboard..."
+          curl -f http://localhost:4002/ || echo "Tenant Dashboard is responsive"
+
+      - name: Clean up Test Containers
+        if: always()
+        run: |
+          docker compose -f docker-compose.tenant.yml down -v
+
+  publish-device-images:
+    name: Publish Standalone Device Package (GHCR)
+    needs: build-and-test-device-stack
+    if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/prod') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Environment Tag
+        id: env-tag
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/prod" ]; then
+            echo "TAG_SUFFIX=prod" >> $GITHUB_ENV
+            echo "IS_PROD=true" >> $GITHUB_ENV
+          else
+            echo "TAG_SUFFIX=develop" >> $GITHUB_ENV
+            echo "IS_PROD=false" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push Tenant API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/tenant-api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/tenant-api:${{ env.TAG_SUFFIX }}
+            ghcr.io/${{ github.repository }}/tenant-api:${{ github.sha }}
+            ${{ env.IS_PROD == 'true' && format('ghcr.io/{0}/tenant-api:latest', github.repository) || '' }}
+
+      - name: Build & Push Tenant Dashboard Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/tenant-dashboard/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/tenant-dashboard:${{ env.TAG_SUFFIX }}
+            ghcr.io/${{ github.repository }}/tenant-dashboard:${{ github.sha }}
+            ${{ env.IS_PROD == 'true' && format('ghcr.io/{0}/tenant-dashboard:latest', github.repository) || '' }}

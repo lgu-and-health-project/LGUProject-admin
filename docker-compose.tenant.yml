@@ -1,16 +1,18 @@
 services:
   tenant-db:
     image: postgres:15-alpine
+    env_file:
+      - .env.tenant
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: lgu_tenant_dev
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-lgu_tenant_dev}
     ports:
       - "5433:5432"
     volumes:
       - tenant_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d lgu_tenant_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lgu_tenant_dev}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,12 +23,14 @@ services:
     build:
       context: .
       dockerfile: apps/tenant-api/Dockerfile
+    env_file:
+      - .env.tenant
     environment:
-      - DATABASE_URL=postgresql://postgres:admin@tenant-db:5432/lgu_tenant_dev
-      - JWT_SECRET=supersecretjwtkey123
-      - ADMIN_API_URL=https://lguproject-admin.onrender.com
-      - INTERNAL_SERVICE_SECRET=4fad283893069592c4d6887fcf3754d9dfa2b34aabcfff9fe42360034ad4876b
-      - PORT=4001
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@tenant-db:5432/lgu_tenant_dev}
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
+      - ADMIN_API_URL=${ADMIN_API_URL:-https://lguproject-admin.onrender.com}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-4fad283893069592c4d6887fcf3754d9dfa2b34aabcfff9fe42360034ad4876b}
+      - PORT=${PORT:-4001}
     ports:
       - "4001:4001"
     depends_on:

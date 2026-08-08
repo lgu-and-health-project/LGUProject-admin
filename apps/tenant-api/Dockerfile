@@ -7,15 +7,9 @@ ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
-COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/tenant-api/package.json ./apps/tenant-api/
-COPY apps/admin-api/package.json ./apps/admin-api/
-COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
-
-
-RUN pnpm install --frozen-lockfile
-
 COPY . .
+
+RUN pnpm install
 
 RUN cd apps/tenant-api && pnpm exec prisma generate
 RUN pnpm --filter tenant-api build
@@ -29,10 +23,9 @@ ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
-COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/tenant-api/package.json ./apps/tenant-api/
+COPY . .
 
-RUN pnpm install --prod --filter tenant-api...
+RUN pnpm install --prod
 
 COPY --from=builder /app/apps/tenant-api/dist ./apps/tenant-api/dist
 COPY --from=builder /app/apps/tenant-api/prisma ./apps/tenant-api/prisma
@@ -40,7 +33,7 @@ COPY --from=builder /app/apps/tenant-api/prisma.config.ts ./apps/tenant-api/pris
 
 WORKDIR /app/apps/tenant-api
 
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 EXPOSE 4001
 
