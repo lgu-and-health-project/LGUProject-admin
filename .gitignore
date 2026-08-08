@@ -31,3 +31,4 @@ skills-lock.json
 
 pruned/
 *.env
+/Development Files/

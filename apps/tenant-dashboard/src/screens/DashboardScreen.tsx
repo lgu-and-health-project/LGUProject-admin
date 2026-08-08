@@ -36,12 +36,15 @@ export default function DashboardScreen() {
     navigate('/login');
   };
 
-  const navItems = [
+  const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/accounts', label: 'Accounts & Roles', icon: Users },
+  ];
+
+  const technicalNavItems = [
     { path: '/settings', label: 'Server Settings', icon: Settings },
     { path: '/database', label: 'Manage Databases', icon: Database },
     { path: '/license', label: 'Manage Licensing', icon: Shield },
-    { path: '/accounts', label: 'Accounts & Roles', icon: Users },
     { path: '/audit-logs', label: 'Audit Logs', icon: Activity },
     { path: '/network', label: 'Network & Sync', icon: Cloud },
   ];
@@ -58,8 +61,27 @@ export default function DashboardScreen() {
           </div>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-          {navItems.map((item) => {
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
+          <div className="nav-section-title">Core Management</div>
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <Link 
+                key={item.path} 
+                to={item.path} 
+                className={`nav-link ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={20} />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          <div className="nav-divider" />
+          <div className="nav-section-title">Technical & System</div>
+
+          {technicalNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (

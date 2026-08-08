@@ -7,16 +7,9 @@ ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
-COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/tenant-api/package.json ./apps/tenant-api/
-COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
-COPY apps/admin-api/package.json ./apps/admin-api/
-COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
-COPY apps/mock-backend/package.json ./apps/mock-backend/
+COPY . .
 
 RUN pnpm install
-
-COPY . .
 
 RUN cd apps/tenant-api && pnpm exec prisma generate
 RUN pnpm --filter tenant-api build
@@ -30,12 +23,7 @@ ENV DATABASE_URL=$DATABASE_URL
 
 RUN npm install -g pnpm
 
-COPY package.json* pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/tenant-api/package.json ./apps/tenant-api/
-COPY apps/tenant-dashboard/package.json ./apps/tenant-dashboard/
-COPY apps/admin-api/package.json ./apps/admin-api/
-COPY apps/admin-dashboard/package.json ./apps/admin-dashboard/
-COPY apps/mock-backend/package.json ./apps/mock-backend/
+COPY . .
 
 RUN pnpm install --prod
 
